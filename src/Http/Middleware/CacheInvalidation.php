@@ -1,0 +1,28 @@
+<?php
+declare(strict_types=1);
+
+namespace PCF\Addendum\Http\Middleware;
+
+use PCF\Addendum\Cache\CacheKeyGenerator;
+use Psr\Http\Message\ResponseInterface;
+use Psr\Http\Message\ServerRequestInterface;
+use Psr\Http\Server\MiddlewareInterface;
+use Psr\Http\Server\RequestHandlerInterface;
+
+class CacheInvalidation implements MiddlewareInterface
+{
+    public function __construct(
+        private CacheKeyGenerator $generator,
+        private ?string $key = null,
+        private bool $useSession = false,
+        private array $params = []
+    ) {
+    }
+
+    public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
+    {
+        $response = $handler->handle($request);
+        $key = $this->key ?? $this->generator->generate($request, $this->useSession, $this->params);
+        return $response->withHeader('X-Cache-Invalidate', $key);
+    }
+}
