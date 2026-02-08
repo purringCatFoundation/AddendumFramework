@@ -7,6 +7,7 @@ use PCF\Addendum\Attribute\ValidateRequest;
 use PCF\Addendum\Validation\RequestValidatorInterface;
 use GuzzleHttp\Psr7\Response as PsrResponse;
 use GuzzleHttp\Psr7\Utils;
+use PCF\Addendum\Validation\Rules\JwtToken;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Server\MiddlewareInterface;
@@ -71,7 +72,7 @@ class ValidateRequestAttribute implements MiddlewareInterface
                     }
                     $allErrors[$fieldName][] = $error;
                 } else {
-                    if ($validator instanceof \Pradzikowski\Game\Validation\JwtToken) {
+                    if ($validator instanceof JwtToken) {
                         $request = $request->withAttribute('jwt_token', $value);
                     }
                 }
