@@ -1,0 +1,10 @@
+{
+	auto_https off
+	frankenphp
+}
+
+:80 {
+	root * /app/dev/frankenphp/public
+	encode zstd br gzip
+	php_server
+}

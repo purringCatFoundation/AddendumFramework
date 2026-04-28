@@ -10,6 +10,7 @@ use Jose\Component\Signature\JWSVerifier;
 use Jose\Component\Signature\Serializer\CompactSerializer;
 use Jose\Component\Core\AlgorithmManager;
 use InvalidArgumentException;
+use JsonException;
 
 class Jwt
 {
@@ -37,14 +38,26 @@ class Jwt
         if (!$verifier->verifyWithKey($jws, $jwk, 0)) {
             throw new InvalidArgumentException('Invalid signature');
         }
-        $payload = json_decode($jws->getPayload() ?? '', true);
+        try {
+            $payload = json_decode($jws->getPayload() ?? '', true, flags: JSON_THROW_ON_ERROR);
+        } catch (JsonException $exception) {
+            throw new InvalidArgumentException('Invalid payload', 0, $exception);
+        }
+
         if (!is_array($payload)) {
             throw new InvalidArgumentException('Invalid payload');
         }
-        if (isset($payload['exp']) && time() >= $payload['exp']) {
+
+        foreach (['sub', 'exp', 'jti', 'iat', 'tokenType'] as $requiredClaim) {
+            if (!array_key_exists($requiredClaim, $payload)) {
+                throw new InvalidArgumentException("Missing required JWT claim: {$requiredClaim}");
+            }
+        }
+
+        if (time() >= (int) $payload['exp']) {
             throw new InvalidArgumentException('Token expired');
         }
+
         return TokenPayload::fromArray($payload);
     }
 }
-

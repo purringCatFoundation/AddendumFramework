@@ -378,13 +378,16 @@ final class RequestTest extends TestCase
         $this->assertSame($jsonData, $request->json());
     }
 
-    public function testJsonMethodReturnsEmptyArrayForInvalidJson(): void
+    public function testJsonMethodRejectsInvalidJson(): void
     {
         $serverRequest = new ServerRequest('POST', '/', [], 'invalid json');
         
         $request = $this->requestFactory->create($serverRequest);
-        
-        $this->assertSame([], $request->json());
+
+        $this->expectException(\PCF\Addendum\Exception\HttpException::class);
+        $this->expectExceptionMessage('Malformed JSON request body');
+
+        $request->json();
     }
 
     public function testRequestImplementsCorrectInterface(): void

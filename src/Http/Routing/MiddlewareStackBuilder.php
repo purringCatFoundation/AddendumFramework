@@ -4,22 +4,34 @@ declare(strict_types=1);
 namespace PCF\Addendum\Http\Routing;
 
 use PCF\Addendum\Http\RouteMiddleware;
+use PCF\Addendum\Http\Middleware\AccessControl;
 use PCF\Addendum\Http\Middleware\Auth;
+use PCF\Addendum\Http\Middleware\RateLimitMiddleware;
 use PCF\Addendum\Http\Middleware\RequestSignature;
+use PCF\Addendum\Http\Middleware\ValidateRequestAttribute;
 use ReflectionClass;
 
 class MiddlewareStackBuilder
 {
+    private const array MIDDLEWARE_PRIORITY = [
+        Auth::class => 10,
+        RequestSignature::class => 20,
+        RateLimitMiddleware::class => 30,
+        ValidateRequestAttribute::class => 40,
+        AccessControl::class => 50,
+    ];
+
     /** @var list<MiddlewareProviderInterface> */
     private array $providers = [];
 
     public function __construct()
     {
         $this->providers = [
-            new ValidateRequestMiddlewareProvider(),
-            new AccessControlMiddlewareProvider(),
             new CustomMiddlewareProvider(),
             new RequestSignatureMiddlewareProvider(),
+            new RateLimitMiddlewareProvider(),
+            new ValidateRequestMiddlewareProvider(),
+            new AccessControlMiddlewareProvider(),
         ];
     }
 
@@ -43,61 +55,60 @@ class MiddlewareStackBuilder
             $middlewares = array_merge($middlewares, $providedMiddlewares);
         }
 
-        // Post-process: ensure RequestSignature is in the correct position
-        $middlewares = $this->repositionRequestSignature($middlewares);
+        $middlewares = $this->deduplicateInfrastructureMiddlewares($middlewares);
+        $middlewares = $this->sortByPriority($middlewares);
 
         return $middlewares;
     }
 
     /**
-     * Repositions RequestSignature middleware to be after Auth if present,
-     * or at the beginning if Auth is not present
-     *
      * @param list<RouteMiddleware> $middlewares
      * @return list<RouteMiddleware>
      */
-    private function repositionRequestSignature(array $middlewares): array
+    private function deduplicateInfrastructureMiddlewares(array $middlewares): array
     {
-        // Find and remove RequestSignature
-        $requestSignatureMiddleware = null;
-        $filteredMiddlewares = [];
+        $seen = [];
+        $deduplicated = [];
 
         foreach ($middlewares as $middleware) {
-            if ($middleware->getClass() === RequestSignature::class) {
-                $requestSignatureMiddleware = $middleware;
-            } else {
-                $filteredMiddlewares[] = $middleware;
+            $middlewareClass = $middleware->getClass();
+
+            if (isset(self::MIDDLEWARE_PRIORITY[$middlewareClass])) {
+                if (isset($seen[$middlewareClass])) {
+                    continue;
+                }
+
+                $seen[$middlewareClass] = true;
             }
+
+            $deduplicated[] = $middleware;
         }
 
-        // If no RequestSignature found, return original array
-        if ($requestSignatureMiddleware === null) {
-            return $middlewares;
+        return $deduplicated;
+    }
+
+    /**
+     * @param list<RouteMiddleware> $middlewares
+     * @return list<RouteMiddleware>
+     */
+    private function sortByPriority(array $middlewares): array
+    {
+        $indexed = [];
+
+        foreach ($middlewares as $index => $middleware) {
+            $indexed[] = [$index, $middleware];
         }
 
-        // Find Auth position
-        $authPosition = null;
-        foreach ($filteredMiddlewares as $index => $middleware) {
-            if ($middleware->getClass() === Auth::class) {
-                $authPosition = $index;
-                break;
+        usort(
+            $indexed,
+            static function (array $left, array $right): int {
+                $leftPriority = self::MIDDLEWARE_PRIORITY[$left[1]->getClass()] ?? 100;
+                $rightPriority = self::MIDDLEWARE_PRIORITY[$right[1]->getClass()] ?? 100;
+
+                return $leftPriority <=> $rightPriority ?: $left[0] <=> $right[0];
             }
-        }
+        );
 
-        // Insert RequestSignature in the correct position
-        if ($authPosition !== null) {
-            // Insert after Auth
-            array_splice(
-                $filteredMiddlewares,
-                $authPosition + 1,
-                0,
-                [$requestSignatureMiddleware]
-            );
-        } else {
-            // Insert at the beginning
-            array_unshift($filteredMiddlewares, $requestSignatureMiddleware);
-        }
-
-        return $filteredMiddlewares;
+        return array_map(static fn(array $item): RouteMiddleware => $item[1], $indexed);
     }
 }

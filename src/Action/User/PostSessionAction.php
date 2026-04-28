@@ -45,6 +45,6 @@ class PostSessionAction implements ActionInterface
         $fingerprint = $request->getHeaderLine('X-Request-Fingerprint');
         $tokens = $this->service->login($data['email'] ?? '', $data['password'] ?? '', $fingerprint);
 
-        return new LoginResponse($tokens['access_token'], $tokens['refresh_token']);
+        return new LoginResponse($tokens->accessToken, $tokens->refreshToken);
     }
 }

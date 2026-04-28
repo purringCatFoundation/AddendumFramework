@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace CitiesRpg\Tests;
 
 use PCF\Addendum\Action\ActionRequestHandler;
+use PCF\Addendum\Response\HttpHeadersAware;
+use PCF\Addendum\Response\HttpStatusAware;
 use PCF\Addendum\Http\Request;
 use PCF\Addendum\Http\RequestFactory;
 use PCF\Addendum\Exception\InvalidCredentialsException;
@@ -220,5 +222,65 @@ final class ActionRequestHandlerTest extends TestCase
         $handler->handle($serverRequest);
         
         $this->assertInstanceOf(Request::class, $capturedRequest);
+    }
+
+    public function testHandleWithResponseHeaders(): void
+    {
+        $action = fn(): HeaderAwareFixtureResponse => new HeaderAwareFixtureResponse();
+
+        $logger = $this->createMock(LoggerInterface::class);
+        $handler = new ActionRequestHandler($action, $logger);
+        $serverRequest = new ServerRequest('POST', '/test');
+
+        $response = $handler->handle($serverRequest);
+
+        $this->assertSame(201, $response->getStatusCode());
+        $this->assertSame('/v1/resources/123', $response->getHeaderLine('Location'));
+    }
+
+    public function testHandleNoContentResponseHasNoJsonContentType(): void
+    {
+        $action = fn(): NoContentFixtureResponse => new NoContentFixtureResponse();
+
+        $logger = $this->createMock(LoggerInterface::class);
+        $handler = new ActionRequestHandler($action, $logger);
+        $serverRequest = new ServerRequest('DELETE', '/test');
+
+        $response = $handler->handle($serverRequest);
+
+        $this->assertSame(204, $response->getStatusCode());
+        $this->assertSame('', $response->getHeaderLine('Content-Type'));
+        $this->assertSame('', (string) $response->getBody());
+    }
+}
+
+final class HeaderAwareFixtureResponse implements \JsonSerializable, HttpStatusAware, HttpHeadersAware
+{
+    public function getStatusCode(): int
+    {
+        return 201;
+    }
+
+    public function getHeaders(): array
+    {
+        return ['Location' => '/v1/resources/123'];
+    }
+
+    public function jsonSerialize(): array
+    {
+        return ['uuid' => '123'];
+    }
+}
+
+final class NoContentFixtureResponse implements \JsonSerializable, HttpStatusAware
+{
+    public function getStatusCode(): int
+    {
+        return 204;
+    }
+
+    public function jsonSerialize(): array
+    {
+        return [];
     }
 }

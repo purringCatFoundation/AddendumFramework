@@ -18,7 +18,7 @@ use PCF\Addendum\Validation\Rules\JwtToken;
  * Refresh access token using a valid refresh token
  *
  * Example request:
- * POST /v1/sessions/refresh
+ * POST /v1/session-refreshes
  * Authorization: Bearer <refresh_token>
  *
  * Example response:
@@ -27,7 +27,7 @@ use PCF\Addendum\Validation\Rules\JwtToken;
  *   "refresh_token": "..."
  * }
  */
-#[Route(path: '/v1/sessions/refresh', method: 'POST')]
+#[Route(path: '/v1/session-refreshes', method: 'POST')]
 #[ValidateRequest('jwt_token', new JwtToken(TokenType::USER_REFRESH), ValidateRequest::SOURCE_HEADER)]
 #[Middleware(Auth::class)]
 class PostRefreshSessionAction implements ActionInterface
@@ -43,6 +43,6 @@ class PostRefreshSessionAction implements ActionInterface
 
         $tokens = $this->service->refresh($token, $fingerprint);
 
-        return new RefreshResponse($tokens['access_token'], $tokens['refresh_token']);
+        return new RefreshResponse($tokens->accessToken, $tokens->refreshToken);
     }
 }

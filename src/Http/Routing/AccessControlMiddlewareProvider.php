@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace PCF\Addendum\Http\Routing;
 
 use PCF\Addendum\Attribute\AccessControl as AccessControlAttribute;
+use PCF\Addendum\Http\Middleware\Auth;
 use PCF\Addendum\Http\MiddlewareOptions;
 use PCF\Addendum\Http\RouteMiddleware;
 use PCF\Addendum\Http\Middleware\AccessControl;
@@ -20,6 +21,10 @@ class AccessControlMiddlewareProvider implements MiddlewareProviderInterface
         }
 
         return [
+            new RouteMiddleware(
+                Auth::class,
+                new MiddlewareOptions()
+            ),
             new RouteMiddleware(
                 AccessControl::class,
                 new MiddlewareOptions()

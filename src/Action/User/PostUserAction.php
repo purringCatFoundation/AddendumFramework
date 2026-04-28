@@ -46,6 +46,6 @@ class PostUserAction implements ActionInterface
         $data = $request->json();
         $user = $this->service->register($data['email'] ?? '', $data['password'] ?? '');
 
-        return new RegisterResponse($user['uuid'], $user['email']);
+        return new RegisterResponse($user->uuid, $user->email);
     }
 }

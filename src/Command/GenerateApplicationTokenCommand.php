@@ -3,6 +3,9 @@ declare(strict_types=1);
 
 namespace PCF\Addendum\Command;
 
+use PCF\Addendum\Auth\Jwt;
+use PCF\Addendum\Auth\TokenPayload;
+use PCF\Addendum\Auth\TokenType;
 use PCF\Addendum\Config\JwtConfig;
 use PCF\Addendum\Repository\User\ApplicationTokenRepository;
 use Symfony\Component\Console\Attribute\AsCommand;
@@ -50,24 +53,14 @@ class GenerateApplicationTokenCommand extends Command
         // Generate JTI (JWT ID)
         $jti = bin2hex(random_bytes(16));
 
-        // Create JWT token payload
         $issuedAt = time();
-        $payload = [
-            'iss' => 'citiesrpg',
-            'iat' => $issuedAt,
-            'jti' => $jti,
-            'type' => 'APPLICATION',
-            'application' => $applicationName,
-            'owner' => $ownerEmail,
-        ];
-
-        // Encode JWT token (no expiration for application tokens)
-        $header = base64_encode(json_encode(['typ' => 'JWT', 'alg' => 'HS256']));
-        $payloadEncoded = base64_encode(json_encode($payload));
-        $signature = hash_hmac('sha256', "$header.$payloadEncoded", $this->jwtConfig->secret, true);
-        $signatureEncoded = base64_encode($signature);
-
-        $token = "$header.$payloadEncoded.$signatureEncoded";
+        $token = Jwt::encode(new TokenPayload(
+            sub: $applicationName,
+            exp: $issuedAt + $this->jwtConfig->refreshTokenLifetime,
+            jti: $jti,
+            iat: $issuedAt,
+            tokenType: TokenType::APPLICATION
+        ), $this->jwtConfig->secret);
 
         // Store token hash in database
         $tokenHash = hash('sha256', $token);

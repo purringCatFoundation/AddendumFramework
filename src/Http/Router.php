@@ -86,6 +86,14 @@ class Router
     }
 
     /**
+     * @return list<string>
+     */
+    public function getAllowedMethodsForPath(string $path): array
+    {
+        return $this->routes->getAllowedMethodsForPath($path);
+    }
+
+    /**
      * Returns the route collection
      *
      * @return RouteCollection

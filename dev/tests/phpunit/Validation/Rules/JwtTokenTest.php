@@ -25,10 +25,31 @@ final class JwtTokenTest extends TestCase
 
     public function testValidateWithMalformedJwtToken(): void
     {
+        $previousJwtSecret = getenv('JWT_SECRET');
+        $hadJwtSecret = array_key_exists('JWT_SECRET', $_ENV);
+        $previousEnvJwtSecret = $_ENV['JWT_SECRET'] ?? null;
+
+        putenv('JWT_SECRET=test-secret-for-malformed-token-validation');
+        $_ENV['JWT_SECRET'] = 'test-secret-for-malformed-token-validation';
+
         $validator = new JwtToken();
 
-        $result = $validator->validate('malformed.token');
-        $this->assertStringStartsWith('Configuration error:', $result);
+        try {
+            $result = $validator->validate('malformed.token');
+            $this->assertStringStartsWith('Invalid token:', $result);
+        } finally {
+            if ($previousJwtSecret === false) {
+                putenv('JWT_SECRET');
+            } else {
+                putenv('JWT_SECRET=' . $previousJwtSecret);
+            }
+
+            if ($hadJwtSecret) {
+                $_ENV['JWT_SECRET'] = $previousEnvJwtSecret;
+            } else {
+                unset($_ENV['JWT_SECRET']);
+            }
+        }
     }
 
     public function testIsValidMethod(): void

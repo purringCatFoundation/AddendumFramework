@@ -1,0 +1,137 @@
+name: addendum-framework-dev
+
+services:
+  app:
+    build:
+      context: ..
+      dockerfile: dev/Dockerfile
+      target: app
+    working_dir: /app
+    profiles:
+      - test
+    environment:
+      APP_ENV: test
+      DB_DSN: pgsql:host=postgres;port=5432;dbname=addendum
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: "5432"
+      POSTGRES_DB: addendum
+      TEST_POSTGRES_DB: addendum_test
+      POSTGRES_USER: addendum
+      POSTGRES_PASSWORD: addendum
+      REDIS_URL: tcp://redis:6379
+      JWT_SECRET: test-secret-for-addendum-framework-32-bytes
+      COMPOSER_CACHE_DIR: /tmp/composer-cache
+    volumes:
+      - ..:/app
+      - vendor:/app/vendor
+      - composer-cache:/tmp/composer-cache
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: ./vendor/bin/phpunit dev/tests/phpunit
+
+  database-tests:
+    build:
+      context: ..
+      dockerfile: dev/Dockerfile
+      target: app
+    working_dir: /app
+    profiles:
+      - database
+    environment:
+      APP_ENV: test
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: "5432"
+      POSTGRES_DB: addendum
+      TEST_POSTGRES_DB: addendum_test
+      POSTGRES_USER: addendum
+      POSTGRES_PASSWORD: addendum
+      REDIS_URL: tcp://redis:6379
+      JWT_SECRET: test-secret-for-addendum-framework-32-bytes
+      COMPOSER_CACHE_DIR: /tmp/composer-cache
+    volumes:
+      - ..:/app
+      - vendor:/app/vendor
+      - composer-cache:/tmp/composer-cache
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: php dev/run-database-tests.php
+
+  frankenphp:
+    build:
+      context: ..
+      dockerfile: dev/Dockerfile
+      target: frankenphp-dev
+    working_dir: /app
+    environment:
+      APP_ENV: dev
+      DB_DSN: pgsql:host=postgres;port=5432;dbname=addendum
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: "5432"
+      POSTGRES_DB: addendum
+      TEST_POSTGRES_DB: addendum_test
+      POSTGRES_USER: addendum
+      POSTGRES_PASSWORD: addendum
+      REDIS_URL: tcp://redis:6379
+      JWT_SECRET: dev-secret-for-addendum-framework-32-bytes
+      LOG_FILE: php://stderr
+      COMPOSER_CACHE_DIR: /tmp/composer-cache
+      XDEBUG_MODE: ${XDEBUG_MODE:-debug,develop}
+      XDEBUG_START_WITH_REQUEST: ${XDEBUG_START_WITH_REQUEST:-yes}
+      XDEBUG_CLIENT_HOST: ${XDEBUG_CLIENT_HOST:-host.docker.internal}
+      XDEBUG_CLIENT_PORT: ${XDEBUG_CLIENT_PORT:-9003}
+      XDEBUG_IDE_KEY: ${XDEBUG_IDE_KEY:-PHPSTORM}
+      PHP_IDE_CONFIG: ${PHP_IDE_CONFIG:-serverName=addendum-frankenphp}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "8080:80"
+    volumes:
+      - ..:/app
+      - vendor:/app/vendor
+      - composer-cache:/tmp/composer-cache
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: frankenphp run --config /etc/caddy/Caddyfile
+
+  postgres:
+    build:
+      context: ..
+      dockerfile: dev/Dockerfile
+      target: postgres-pgtap
+    environment:
+      POSTGRES_DB: addendum
+      POSTGRES_USER: addendum
+      POSTGRES_PASSWORD: addendum
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U addendum -d addendum"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+volumes:
+  composer-cache:
+  postgres-data:
+  vendor:

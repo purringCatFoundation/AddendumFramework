@@ -52,6 +52,17 @@ class RouteCollectionTest extends TestCase
         $this->assertNull($match);
     }
 
+    public function testGetAllowedMethodsForPath(): void
+    {
+        $collection = new RouteCollection();
+
+        $collection->addRoute('GET', new RegisteredRoute('#^/test$#', 'GetTestAction', []));
+        $collection->addRoute('PATCH', new RegisteredRoute('#^/test$#', 'PatchTestAction', []));
+
+        $this->assertSame(['GET', 'PATCH'], $collection->getAllowedMethodsForPath('/test'));
+        $this->assertSame([], $collection->getAllowedMethodsForPath('/missing'));
+    }
+
     public function testGetAllRoutes(): void
     {
         $collection = new RouteCollection();

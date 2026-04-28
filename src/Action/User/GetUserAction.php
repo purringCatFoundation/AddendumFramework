@@ -29,7 +29,7 @@ class GetUserAction implements ActionInterface
 {
     public function __invoke(Request $request): ProfileResponse
     {
-        $uuid = $request->get('user_uuid');
+        $uuid = $request->get('userUuid') ?? $request->get('user_uuid');
 
         return new ProfileResponse($uuid);
     }

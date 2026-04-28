@@ -4,9 +4,10 @@ declare(strict_types=1);
 namespace PCF\Addendum\Response\User;
 
 use JsonSerializable;
+use PCF\Addendum\Response\HttpHeadersAware;
 use PCF\Addendum\Response\HttpStatusAware;
 
-class RegisterResponse implements JsonSerializable, HttpStatusAware
+class RegisterResponse implements JsonSerializable, HttpStatusAware, HttpHeadersAware
 {
     public function __construct(public string $uuid, public string $email)
     {
@@ -20,5 +21,10 @@ class RegisterResponse implements JsonSerializable, HttpStatusAware
     public function jsonSerialize(): array
     {
         return ['uuid' => $this->uuid, 'email' => $this->email];
+    }
+
+    public function getHeaders(): array
+    {
+        return ['Location' => '/v1/users/' . $this->uuid];
     }
 }

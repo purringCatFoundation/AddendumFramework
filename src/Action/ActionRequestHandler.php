@@ -7,19 +7,27 @@ use PCF\Addendum\Exception\HttpException;
 use PCF\Addendum\Exception\InvalidCredentialsException;
 use PCF\Addendum\Exception\UnauthorizedException;
 use PCF\Addendum\Http\RequestFactory;
+use PCF\Addendum\Response\HttpHeadersAware;
 use PCF\Addendum\Response\HttpStatusAware;
 use GuzzleHttp\Psr7\Response as PsrResponse;
 use GuzzleHttp\Psr7\Utils;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Server\RequestHandlerInterface;
+use Psr\Log\LoggerInterface;
 use Throwable;
 
 class ActionRequestHandler implements RequestHandlerInterface
 {
+    private const int JSON_FLAGS = JSON_THROW_ON_ERROR
+        | JSON_HEX_TAG
+        | JSON_HEX_AMP
+        | JSON_HEX_APOS
+        | JSON_HEX_QUOT;
+
     public function __construct(
         private $action,
-        private \Psr\Log\LoggerInterface $logger
+        private LoggerInterface $logger
     ) {
     }
 
@@ -38,30 +46,33 @@ class ActionRequestHandler implements RequestHandlerInterface
             $statusCode = $responseModel instanceof HttpStatusAware
                 ? $responseModel->getStatusCode()
                 : 200;
+            $headers = $responseModel instanceof HttpHeadersAware
+                ? $responseModel->getHeaders()
+                : [];
 
             // 204 No Content should not have a body
             if ($statusCode === 204) {
                 return new PsrResponse(
                     status: 204,
-                    headers: ['Content-Type' => 'application/json']
+                    headers: $headers
                 );
             }
 
-            $body = Utils::streamFor(json_encode($responseModel, JSON_THROW_ON_ERROR));
+            $body = Utils::streamFor(json_encode($responseModel, self::JSON_FLAGS));
             return new PsrResponse(
                 status: $statusCode,
-                headers: ['Content-Type' => 'application/json'],
+                headers: array_merge(['Content-Type' => 'application/json'], $headers),
                 body: $body
             );
         } catch (InvalidCredentialsException|UnauthorizedException $e) {
-            $body = Utils::streamFor(json_encode(['error' => $e->getMessage()]));
+            $body = Utils::streamFor(json_encode(['error' => $e->getMessage()], self::JSON_FLAGS));
             return new PsrResponse(
                 status: 401,
                 headers: ['Content-Type' => 'application/json'],
                 body: $body
             );
         } catch (HttpException $e) {
-            $body = Utils::streamFor(json_encode(['error' => $e->getMessage()]));
+            $body = Utils::streamFor(json_encode(['error' => $e->getMessage()], self::JSON_FLAGS));
             return new PsrResponse(
                 status: $e->getStatusCode(),
                 headers: ['Content-Type' => 'application/json'],
@@ -76,7 +87,7 @@ class ActionRequestHandler implements RequestHandlerInterface
                 'class' => __CLASS__
             ]);
 
-            $body = Utils::streamFor(json_encode(['error' => 'Internal server error']));
+            $body = Utils::streamFor(json_encode(['error' => 'Internal server error'], self::JSON_FLAGS));
             return new PsrResponse(
                 status: 500,
                 headers: ['Content-Type' => 'application/json'],

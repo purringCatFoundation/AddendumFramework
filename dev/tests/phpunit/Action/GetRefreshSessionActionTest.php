@@ -5,6 +5,7 @@ namespace PCF\Addendum\Tests\Action;
 
 use PCF\Addendum\Action\User\PostRefreshSessionAction;
 use PCF\Addendum\Auth\AuthService;
+use PCF\Addendum\Auth\TokenPair;
 use PCF\Addendum\Http\Request;
 use PCF\Addendum\Response\User\RefreshResponse;
 use PHPUnit\Framework\MockObject\MockObject;
@@ -45,10 +46,7 @@ final class GetRefreshSessionActionTest extends TestCase
             ->expects($this->once())
             ->method('refresh')
             ->with($refreshToken, $fingerprint)
-            ->willReturn([
-                'access_token' => $newAccessToken,
-                'refresh_token' => $newRefreshToken
-            ]);
+            ->willReturn(new TokenPair($newAccessToken, $newRefreshToken, 3600));
 
         $response = ($this->action)($mockRequest);
 
@@ -77,10 +75,7 @@ final class GetRefreshSessionActionTest extends TestCase
             ->expects($this->once())
             ->method('refresh')
             ->with($refreshToken, $fingerprint)
-            ->willReturn([
-                'access_token' => 'token',
-                'refresh_token' => 'refresh'
-            ]);
+            ->willReturn(new TokenPair('token', 'refresh', 3600));
 
         ($this->action)($mockRequest);
     }

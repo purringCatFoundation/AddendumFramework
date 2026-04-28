@@ -4,10 +4,12 @@ declare(strict_types=1);
 namespace PCF\Addendum\Action\Admin;
 
 use PCF\Addendum\Action\ActionInterface;
+use PCF\Addendum\Attribute\AccessControl;
 use PCF\Addendum\Attribute\Middleware;
 use PCF\Addendum\Attribute\Route;
 use PCF\Addendum\Attribute\ValidateRequest;
 use PCF\Addendum\Auth\TokenValidationRepository;
+use PCF\Addendum\Guardian\AdminOnlyGuardian;
 use PCF\Addendum\Http\Request;
 use PCF\Addendum\Http\Middleware\Auth;
 use PCF\Addendum\Response\NoContentResponse;
@@ -18,7 +20,7 @@ use InvalidArgumentException;
  * Administrative endpoint to revoke tokens
  *
  * Example request (revoke specific user):
- * DELETE /v1/admin/tokens
+ * POST /v1/admin/token-revocations
  * Authorization: Bearer <admin_access_token>
  * {
  *   "userUuid": "11111111-1111-1111-1111-111111111111",
@@ -26,7 +28,7 @@ use InvalidArgumentException;
  * }
  *
  * Example request (revoke all tokens globally):
- * DELETE /v1/admin/tokens
+ * POST /v1/admin/token-revocations
  * Authorization: Bearer <admin_access_token>
  * {
  *   "global": true,
@@ -35,8 +37,9 @@ use InvalidArgumentException;
  *
  * Example response: 204 No Content
  */
-#[Route(path: '/v1/admin/tokens', method: 'DELETE')]
+#[Route(path: '/v1/admin/token-revocations', method: 'POST')]
 #[Middleware(Auth::class)]
+#[AccessControl(AdminOnlyGuardian::class)]
 #[ValidateRequest('reason', new Required())]
 class DeleteAdminTokensAction implements ActionInterface
 {

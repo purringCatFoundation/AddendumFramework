@@ -27,7 +27,7 @@ enum TokenType: string
     {
         return match ($this) {
             self::ADMIN, self::APPLICATION => true,
-            self::USER, self::CHARACTER => false,
+            self::USER, self::USER_REFRESH, self::CHARACTER, self::CHARACTER_REFRESH => false,
         };
     }
 
@@ -48,7 +48,9 @@ enum TokenType: string
             self::ADMIN => 'Administrator with full access',
             self::APPLICATION => 'Application-level system access',
             self::USER => 'Standard user with ownership-based access',
+            self::USER_REFRESH => 'Refresh token for standard user access',
             self::CHARACTER => 'Character-specific access',
+            self::CHARACTER_REFRESH => 'Refresh token for character-specific access',
         };
     }
 }

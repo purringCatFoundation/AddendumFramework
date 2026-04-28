@@ -7,8 +7,11 @@ use PCF\Addendum\Auth\AuthRepositoryInterface;
 use PCF\Addendum\Auth\AuthService;
 use PCF\Addendum\Auth\Jwt;
 use PCF\Addendum\Auth\JtiGenerator;
+use PCF\Addendum\Auth\RegisteredUser;
 use PCF\Addendum\Auth\TokenPayload;
+use PCF\Addendum\Auth\TokenPair;
 use PCF\Addendum\Auth\TokenType;
+use PCF\Addendum\Auth\UserIdentity;
 use PCF\Addendum\Auth\TokenValidationRepository;
 use PCF\Addendum\Config\JwtConfig;
 use PCF\Addendum\Exception\InvalidCredentialsException;
@@ -51,7 +54,7 @@ final class AuthServiceTest extends TestCase
     {
         $email = 'test@example.com';
         $password = 'password123';
-        $expectedResult = ['uuid' => 'test-uuid', 'email' => $email];
+        $expectedResult = new RegisteredUser('test-uuid', $email);
 
         $this->mockAuthRepository
             ->expects($this->once())
@@ -70,7 +73,7 @@ final class AuthServiceTest extends TestCase
         $password = 'password123';
         $fingerprint = 'test-fingerprint';
         $userUuid = '123e4567-e89b-12d3-a456-426614174000';
-        $user = ['id' => 1, 'uuid' => $userUuid, 'email' => $email];
+        $user = new UserIdentity(1, $userUuid, $email);
         $hashedPassword = password_hash($password, PASSWORD_ARGON2ID);
 
         $this->mockAuthRepository
@@ -93,13 +96,11 @@ final class AuthServiceTest extends TestCase
 
         $result = $this->authService->login($email, $password, $fingerprint);
 
-        $this->assertIsArray($result);
-        $this->assertArrayHasKey('access_token', $result);
-        $this->assertArrayHasKey('refresh_token', $result);
-        $this->assertArrayHasKey('expires_in', $result);
-        $this->assertArrayHasKey('token_type', $result);
-        $this->assertSame(3600, $result['expires_in']);
-        $this->assertSame('Bearer', $result['token_type']);
+        $this->assertInstanceOf(TokenPair::class, $result);
+        $this->assertNotSame('', $result->accessToken);
+        $this->assertNotSame('', $result->refreshToken);
+        $this->assertSame(3600, $result->expiresIn);
+        $this->assertSame('Bearer', $result->tokenType);
     }
 
     public function testLoginWithNonExistentUser(): void
@@ -124,7 +125,7 @@ final class AuthServiceTest extends TestCase
         $email = 'test@example.com';
         $password = 'wrongpassword';
         $fingerprint = 'test-fingerprint';
-        $user = ['id' => 1, 'uuid' => 'test-uuid', 'email' => $email];
+        $user = new UserIdentity(1, 'test-uuid', $email);
         $hashedPassword = password_hash('correctpassword', PASSWORD_ARGON2ID);
 
         $this->mockAuthRepository
@@ -149,7 +150,7 @@ final class AuthServiceTest extends TestCase
         $email = 'test@example.com';
         $password = 'password123';
         $fingerprint = 'test-fingerprint';
-        $user = ['id' => 1, 'uuid' => 'test-uuid', 'email' => $email];
+        $user = new UserIdentity(1, 'test-uuid', $email);
 
         $this->mockAuthRepository
             ->expects($this->once())
@@ -199,9 +200,9 @@ final class AuthServiceTest extends TestCase
 
         $result = $this->authService->refresh($refreshToken, $fingerprint);
 
-        $this->assertIsArray($result);
-        $this->assertArrayHasKey('access_token', $result);
-        $this->assertArrayHasKey('refresh_token', $result);
+        $this->assertInstanceOf(TokenPair::class, $result);
+        $this->assertNotSame('', $result->accessToken);
+        $this->assertNotSame('', $result->refreshToken);
     }
 
     public function testRefreshWithInvalidTokenType(): void
@@ -286,7 +287,7 @@ final class AuthServiceTest extends TestCase
         $password = 'password123';
         $fingerprint = 'test-fingerprint';
         $userUuid = '123e4567-e89b-12d3-a456-426614174000';
-        $user = ['id' => 1, 'uuid' => $userUuid, 'email' => $email];
+        $user = new UserIdentity(1, $userUuid, $email);
         $hashedPassword = password_hash($password, PASSWORD_ARGON2ID);
 
         $this->mockAuthRepository
@@ -309,6 +310,6 @@ final class AuthServiceTest extends TestCase
 
         $result = $this->authService->login($email, $password, $fingerprint);
 
-        $this->assertTrue($result['is_admin']);
+        $this->assertTrue($result->isAdmin);
     }
 }

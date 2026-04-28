@@ -34,11 +34,18 @@ class RegisteredRoute
             throw new RuntimeException('Route does not match the request path');
         }
 
+        $routeParams = [];
+
         foreach ($matches as $key => $value) {
             if (!is_int($key)) {
+                $routeParams[$key] = $value;
                 $request = $request->withAttribute($key, $value);
             }
         }
+
+        $request = $request
+            ->withAttribute('action_class', $this->actionClass)
+            ->withAttribute('route_params', $routeParams);
 
         $middlewaresWithActionClass = array_map(
             fn(RouteMiddleware $middleware) => $middleware->withActionClass($this->actionClass),

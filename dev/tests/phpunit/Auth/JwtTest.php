@@ -39,7 +39,8 @@ final class JwtTest extends TestCase
             sub: 'user-uuid-123',
             exp: time() + 3600,
             jti: 'jti-123',
-            iat: time()
+            iat: time(),
+            tokenType: TokenType::USER
         );
 
         $token = Jwt::encode($payload, self::TEST_SECRET);
@@ -60,7 +61,8 @@ final class JwtTest extends TestCase
             sub: 'user-uuid-123',
             exp: time() + 3600,
             jti: 'jti-123',
-            iat: time()
+            iat: time(),
+            tokenType: TokenType::USER
         );
 
         $token = Jwt::encode($payload, self::TEST_SECRET);
@@ -77,7 +79,8 @@ final class JwtTest extends TestCase
             sub: 'user-uuid-123',
             exp: time() - 3600, // Expired 1 hour ago
             jti: 'jti-123',
-            iat: time() - 7200
+            iat: time() - 7200,
+            tokenType: TokenType::USER
         );
 
         $token = Jwt::encode($payload, self::TEST_SECRET);
@@ -122,7 +125,8 @@ final class JwtTest extends TestCase
             sub: 'user-uuid-123',
             exp: time(),
             jti: 'jti-123',
-            iat: time() - 60
+            iat: time() - 60,
+            tokenType: TokenType::USER
         );
 
         $token = Jwt::encode($payload, self::TEST_SECRET);
@@ -139,7 +143,8 @@ final class JwtTest extends TestCase
             sub: 'user-uuid-123',
             exp: time() + 1, // Expires in 1 second
             jti: 'jti-123',
-            iat: time()
+            iat: time(),
+            tokenType: TokenType::USER
         );
 
         $token = Jwt::encode($payload, self::TEST_SECRET);

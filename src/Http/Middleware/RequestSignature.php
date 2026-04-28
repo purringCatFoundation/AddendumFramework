@@ -9,6 +9,7 @@ use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Server\MiddlewareInterface;
 use Psr\Http\Server\RequestHandlerInterface;
+use Psr\SimpleCache\CacheInterface;
 
 /**
  * Request Signature Verification Middleware
@@ -20,10 +21,11 @@ use Psr\Http\Server\RequestHandlerInterface;
  * - X-Request-Timestamp: <unix_timestamp>
  * - X-Request-Fingerprint: <device_fingerprint>
  * - X-Request-Signature: <hmac_signature>
+ * - X-Request-Nonce: <unique_request_nonce> when replay cache is configured
  *
  * Signature calculation:
  * - Public endpoints: HMAC-SHA256(fingerprint, timestamp + fingerprint + method + path + body)
- * - Authenticated: HMAC-SHA256(JWT_SECRET + jti + fingerprintHash, timestamp + fingerprint + method + path + body)
+ * - Authenticated: HMAC-SHA256(HMAC(JWT_SECRET, jti + fingerprintHash), timestamp + fingerprint + method + path + body)
  *
  * Protection against:
  * - Request tampering (body modification)
@@ -37,9 +39,11 @@ class RequestSignature implements MiddlewareInterface
     private const HEADER_TIMESTAMP = 'X-Request-Timestamp';
     private const HEADER_FINGERPRINT = 'X-Request-Fingerprint';
     private const HEADER_SIGNATURE = 'X-Request-Signature';
+    private const HEADER_NONCE = 'X-Request-Nonce';
 
     public function __construct(
-        private readonly string $jwtSecret
+        private readonly string $jwtSecret,
+        private readonly ?CacheInterface $replayCache = null
     ) {}
 
     public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
@@ -47,6 +51,7 @@ class RequestSignature implements MiddlewareInterface
         $timestamp = $request->getHeaderLine(self::HEADER_TIMESTAMP);
         $fingerprint = $request->getHeaderLine(self::HEADER_FINGERPRINT);
         $signature = $request->getHeaderLine(self::HEADER_SIGNATURE);
+        $nonce = $request->getHeaderLine(self::HEADER_NONCE);
 
         if (empty($timestamp)) {
             return $this->createErrorResponse('Missing required header: ' . self::HEADER_TIMESTAMP, 400);
@@ -59,6 +64,9 @@ class RequestSignature implements MiddlewareInterface
         }
         if (!ctype_digit($timestamp)) {
             return $this->createErrorResponse('Invalid timestamp format', 400);
+        }
+        if ($this->replayCache !== null && empty($nonce)) {
+            return $this->createErrorResponse('Missing required header: ' . self::HEADER_NONCE, 400);
         }
         $timestampInt = (int)$timestamp;
 
@@ -77,7 +85,8 @@ class RequestSignature implements MiddlewareInterface
             $request,
             $timestampInt,
             $fingerprint,
-            $isAuthenticated
+            $isAuthenticated,
+            $nonce
         );
 
         if (!hash_equals($expectedSignature, $signature)) {
@@ -94,6 +103,16 @@ class RequestSignature implements MiddlewareInterface
                     403
                 );
             }
+        }
+
+        if ($this->replayCache !== null) {
+            $replayKey = $this->createReplayCacheKey($request, $timestampInt, $fingerprint, $nonce, $signature);
+
+            if ($this->replayCache->has($replayKey)) {
+                return $this->createErrorResponse('Request nonce has already been used', 409);
+            }
+
+            $this->replayCache->set($replayKey, '1', self::TIMESTAMP_TOLERANCE_SECONDS);
         }
 
         // Signature valid, proceed with request
@@ -113,23 +132,39 @@ class RequestSignature implements MiddlewareInterface
         ServerRequestInterface $request,
         int $timestamp,
         string $fingerprint,
-        bool $isAuthenticated
+        bool $isAuthenticated,
+        string $nonce
     ): string {
         if ($isAuthenticated) {
             $jti = $request->getAttribute('jti');
             $fingerprintHash = $request->getAttribute('fingerprint_hash');
-            $signingKey = $jti . $fingerprintHash;
+            $signingKey = hash_hmac('sha256', (string) $jti . (string) $fingerprintHash, $this->jwtSecret);
         } else {
             $signingKey = $fingerprint;
         }
 
         $method = $request->getMethod();
         $path = $request->getUri()->getPath();
+        $query = $request->getUri()->getQuery();
         $body = (string)$request->getBody();
 
-        $data = $timestamp . $fingerprint . $method . $path . $body;
+        $target = $query !== '' ? $path . '?' . $query : $path;
+        $data = $timestamp . $fingerprint . $method . $target . $nonce . $body;
 
         return hash_hmac('sha256', $data, $signingKey);
+    }
+
+    private function createReplayCacheKey(
+        ServerRequestInterface $request,
+        int $timestamp,
+        string $fingerprint,
+        string $nonce,
+        string $signature
+    ): string {
+        $jti = (string) $request->getAttribute('jti', 'public');
+        $data = $timestamp . '|' . $fingerprint . '|' . $nonce . '|' . $signature . '|' . $jti;
+
+        return 'request_signature_replay:' . hash('sha256', $data);
     }
 
     /**

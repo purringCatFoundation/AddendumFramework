@@ -3,6 +3,8 @@ declare(strict_types=1);
 
 namespace PCF\Addendum\Http;
 
+use JsonException;
+use PCF\Addendum\Exception\HttpException;
 use Psr\Http\Message\RequestInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Message\StreamInterface;
@@ -31,7 +33,18 @@ class Request implements RequestInterface
      */
     public function json(): array
     {
-        $data = json_decode((string) $this->serverRequest->getBody(), true);
+        $body = (string) $this->serverRequest->getBody();
+
+        if (trim($body) === '') {
+            return [];
+        }
+
+        try {
+            $data = json_decode($body, true, flags: JSON_THROW_ON_ERROR);
+        } catch (JsonException $exception) {
+            throw HttpException::badRequest('Malformed JSON request body');
+        }
+
         return is_array($data) ? $data : [];
     }
 

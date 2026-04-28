@@ -3,45 +3,52 @@ declare(strict_types=1);
 
 namespace PCF\Addendum\Repository\User;
 
+use ArrayObject;
 use PCF\Addendum\Auth\AuthRepositoryInterface;
+use PCF\Addendum\Auth\RegisteredUser;
+use PCF\Addendum\Auth\UserIdentity;
 use PCF\Addendum\Util\Uuid;
 
 class DevAuthRepository implements AuthRepositoryInterface
 {
-    private array $users = [];
+    /** @var ArrayObject<int, DevUserAccount> */
+    private ArrayObject $users;
     private int $nextId = 1;
 
     public function __construct(array $seedUsers = [])
     {
+        $this->users = new ArrayObject();
+
         foreach ($seedUsers as $user) {
             $id = (int) ($user['id'] ?? 0);
             if ($id > 0) {
-                $this->users[$id] = $user;
+                $this->users[$id] = new DevUserAccount(
+                    id: $id,
+                    uuid: (string) $user['uuid'],
+                    email: (string) $user['email'],
+                    passwordHash: (string) $user['password']
+                );
                 $this->nextId = max($this->nextId, $id + 1);
             }
         }
     }
 
-    public function createUser(string $email, string $password): array
+    public function createUser(string $email, string $password): RegisteredUser
     {
         $id = $this->nextId++;
         $uuid = Uuid::v4();
         $algo = defined('PASSWORD_ARGON2ID') ? \PASSWORD_ARGON2ID : PASSWORD_BCRYPT;
         $hash = password_hash($password, $algo);
-        $this->users[$id] = [
-            'id' => $id,
-            'uuid' => $uuid,
-            'email' => $email,
-            'password' => $hash,
-        ];
-        return ['uuid' => $uuid, 'email' => $email];
+        $this->users[$id] = new DevUserAccount($id, $uuid, $email, $hash);
+
+        return new RegisteredUser($uuid, $email);
     }
 
-    public function findUserByEmail(string $email): ?array
+    public function findUserByEmail(string $email): ?UserIdentity
     {
         foreach ($this->users as $user) {
-            if ($user['email'] === $email) {
-                return ['id' => $user['id'], 'uuid' => $user['uuid'], 'email' => $user['email']];
+            if ($user->email === $email) {
+                return new UserIdentity($user->id, $user->uuid, $user->email);
             }
         }
         return null;
@@ -49,6 +56,8 @@ class DevAuthRepository implements AuthRepositoryInterface
 
     public function latestPasswordHash(int $userId): ?string
     {
-        return $this->users[$userId]['password'] ?? null;
+        $user = $this->users[$userId] ?? null;
+
+        return $user instanceof DevUserAccount ? $user->passwordHash : null;
     }
 }

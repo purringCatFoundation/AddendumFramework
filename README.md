@@ -1,6 +1,6 @@
 # PCF Addendum Framework
 
-A modern PHP 8.5+ micro-framework with attribute-based routing, JWT authentication, request signature verification, and CLI support.
+A PHP 8.5-only API framework with attribute-based routing, JWT authentication, request signature verification, PostgreSQL support, and CLI tooling.
 
 ## Features
 
@@ -14,10 +14,104 @@ A modern PHP 8.5+ micro-framework with attribute-based routing, JWT authenticati
 
 ## Requirements
 
-- PHP 8.5+
+- PHP 8.5
+- `ext-ds` installed with PHP Installer for Extensions (PIE): `pie install php-ds/ext-ds`
+- `ext-pdo_pgsql`
 - PostgreSQL
 - Redis
 - Composer
+
+## Development Server
+
+The default Docker Compose stack runs the API server on FrankenPHP with Xdebug enabled. It also starts PostgreSQL and Redis, so a plain `docker compose up` from the repository root gives you a working local API environment.
+
+The root `compose.yaml` includes `dev/docker-compose.yaml`; use the root-level commands below unless you intentionally want to address the dev compose file directly.
+
+Default services:
+
+- `frankenphp` - API server on `http://localhost:8080`
+- `postgres` - PostgreSQL on `localhost:5432`
+- `redis` - Redis on `localhost:6379`
+
+Test services are not started by default. They are available through Compose profiles.
+
+Build the FrankenPHP image:
+
+```bash
+docker compose build frankenphp
+```
+
+Start the server in the foreground:
+
+```bash
+docker compose up
+```
+
+Start the server in the background:
+
+```bash
+docker compose up -d
+```
+
+Open the server at `http://localhost:8080`.
+
+Check that FrankenPHP and Xdebug are loaded:
+
+```bash
+curl -fsS http://localhost:8080/health.php
+```
+
+Follow server logs:
+
+```bash
+docker compose logs -f frankenphp
+```
+
+Stop the server and dependencies:
+
+```bash
+docker compose stop
+```
+
+Run PHPUnit explicitly when needed:
+
+```bash
+docker compose --profile test run --rm app
+```
+
+Run database pgTAP tests explicitly when needed:
+
+```bash
+docker compose --profile database run --rm database-tests
+```
+
+Public framework routes, including `/hello`, do not require request signing headers. Routes that declare `Auth` middleware, directly with `#[Middleware(Auth::class)]` or indirectly through `#[AccessControl(...)]`, require the normal token and request signature checks. `/health.php` checks the server without entering framework routing.
+
+Xdebug defaults:
+
+- Mode: `debug,develop`
+- Start with request: `yes`
+- Client host: `host.docker.internal`
+- Client port: `9003`
+- IDE key: `PHPSTORM`
+- IDE server name: `addendum-frankenphp`
+- Path mapping: project root to `/app`
+
+Configure your IDE debug server with the name `addendum-frankenphp`, listening on port `9003`, and map this project directory to `/app`.
+
+Override Xdebug settings through environment variables, for example:
+
+```bash
+XDEBUG_START_WITH_REQUEST=trigger docker compose up frankenphp
+```
+
+## Design Principles
+
+- **Attribute-first APIs** - routes, validation, authorization, rate limits and middleware are declared on endpoint classes.
+- **PSR-first contracts** - use PHP-FIG interfaces where they exist instead of framework-specific replacements.
+- **PostgreSQL-only persistence** - runtime database access targets PostgreSQL only; every table and PostgreSQL function must have database tests.
+- **Object-oriented data flow** - structured data moves through DTO/value objects; collections use collection objects such as `ArrayObject` or `ext-ds` collections. Plain arrays are limited to PHP/vendor boundaries like PDO parameters, PSR headers and final JSON serialization.
+- **Security by default** - endpoints should opt into explicit authorization, rate limiting, request validation and security headers through attributes or global middleware.
 
 ## Quick Start
 
@@ -113,7 +207,7 @@ class CreateUserAction implements ActionInterface
 Create a `.env` file in your project root:
 
 ```env
-# Database
+# Database (PostgreSQL only)
 POSTGRES_HOST=localhost
 POSTGRES_DB=myapp
 POSTGRES_USER=myapp
@@ -152,7 +246,10 @@ Every request must include these headers:
 | `X-Request-Timestamp` | Unix timestamp (max 5 minutes old) |
 | `X-Request-Fingerprint` | Unique device/client identifier |
 | `X-Request-Signature` | HMAC-SHA256 signature |
+| `X-Request-Nonce` | Unique per-request nonce when replay cache is configured |
 | `Authorization` | Bearer token (authenticated endpoints only) |
+
+Do not expose `JWT_SECRET` to browser or mobile clients. Authenticated request signing that depends on the server secret is intended for trusted server-side clients unless an application introduces a separate per-client signing-secret exchange.
 
 ### Signature Calculation
 
@@ -161,7 +258,7 @@ Every request must include these headers:
 For unauthenticated endpoints, the signature uses the fingerprint as the signing key:
 
 ```
-data = timestamp + fingerprint + method + path + body
+data = timestamp + fingerprint + method + pathWithQuery + nonce + body
 signature = HMAC-SHA256(fingerprint, data)
 ```
 
@@ -170,8 +267,8 @@ signature = HMAC-SHA256(fingerprint, data)
 For authenticated endpoints, the signature uses a composite key:
 
 ```
-data = timestamp + fingerprint + method + path + body
-signingKey = JWT_SECRET + jti + fingerprintHash
+data = timestamp + fingerprint + method + pathWithQuery + nonce + body
+signingKey = HMAC-SHA256(JWT_SECRET, jti + fingerprintHash)
 signature = HMAC-SHA256(signingKey, data)
 ```
 
@@ -221,11 +318,12 @@ function signRequest(params: {
   body: object | null;
   fingerprint: string;
   token?: string;      // JWT token (for authenticated requests)
-  jwtSecret?: string;  // Only needed server-side or in secure env
-}): { timestamp: number; signature: string } {
+  jwtSecret?: string;  // Trusted server-side clients only
+}): { timestamp: number; nonce: string; signature: string } {
   const timestamp = Math.floor(Date.now() / 1000);
+  const nonce = crypto.randomUUID();
   const bodyString = params.body ? JSON.stringify(params.body) : '';
-  const data = `${timestamp}${params.fingerprint}${params.method}${params.path}${bodyString}`;
+  const data = `${timestamp}${params.fingerprint}${params.method}${params.path}${nonce}${bodyString}`;
 
   let signingKey: string;
 
@@ -234,7 +332,10 @@ function signRequest(params: {
     const payload = JSON.parse(atob(params.token.split('.')[1]));
     const jti = payload.jti;
     const fingerprintHash = payload.fingerprintHash || '';
-    signingKey = params.jwtSecret + jti + fingerprintHash;
+    signingKey = crypto
+      .createHmac('sha256', params.jwtSecret)
+      .update(`${jti}${fingerprintHash}`)
+      .digest('hex');
   } else {
     // Public request
     signingKey = params.fingerprint;
@@ -245,7 +346,7 @@ function signRequest(params: {
     .update(data)
     .digest('hex');
 
-  return { timestamp, signature };
+  return { timestamp, nonce, signature };
 }
 ```
 
@@ -258,7 +359,7 @@ async function register(email: string, password: string) {
   const body = { email, password };
   const fingerprint = getDeviceFingerprint();
 
-  const { timestamp, signature } = signRequest({
+  const { timestamp, nonce, signature } = signRequest({
     method,
     path,
     body,
@@ -271,6 +372,7 @@ async function register(email: string, password: string) {
       'Content-Type': 'application/json',
       'X-Request-Timestamp': timestamp.toString(),
       'X-Request-Fingerprint': fingerprint,
+      'X-Request-Nonce': nonce,
       'X-Request-Signature': signature,
     },
     body: JSON.stringify(body),
@@ -289,7 +391,7 @@ async function login(email: string, password: string) {
   const body = { email, password };
   const fingerprint = getDeviceFingerprint();
 
-  const { timestamp, signature } = signRequest({
+  const { timestamp, nonce, signature } = signRequest({
     method,
     path,
     body,
@@ -302,6 +404,7 @@ async function login(email: string, password: string) {
       'Content-Type': 'application/json',
       'X-Request-Timestamp': timestamp.toString(),
       'X-Request-Fingerprint': fingerprint,
+      'X-Request-Nonce': nonce,
       'X-Request-Signature': signature,
     },
     body: JSON.stringify(body),
@@ -320,7 +423,7 @@ async function getCharacters(accessToken: string) {
   const path = '/v1/characters';
   const fingerprint = getDeviceFingerprint();
 
-  const { timestamp, signature } = signRequest({
+  const { timestamp, nonce, signature } = signRequest({
     method,
     path,
     body: null,
@@ -335,6 +438,7 @@ async function getCharacters(accessToken: string) {
       'Authorization': `Bearer ${accessToken}`,
       'X-Request-Timestamp': timestamp.toString(),
       'X-Request-Fingerprint': fingerprint,
+      'X-Request-Nonce': nonce,
       'X-Request-Signature': signature,
     },
   });
@@ -349,6 +453,7 @@ async function getCharacters(accessToken: string) {
 import hashlib
 import hmac
 import json
+import secrets
 import time
 import requests
 
@@ -364,11 +469,12 @@ def sign_request(
     fingerprint: str,
     token: str | None = None,
     jwt_secret: str | None = None,
-) -> tuple[int, str]:
+) -> tuple[int, str, str]:
     """Generate request signature."""
     timestamp = int(time.time())
+    nonce = secrets.token_hex(16)
     body_string = json.dumps(body, separators=(',', ':')) if body else ''
-    data = f"{timestamp}{fingerprint}{method}{path}{body_string}"
+    data = f"{timestamp}{fingerprint}{method}{path}{nonce}{body_string}"
 
     if token and jwt_secret:
         # Authenticated request
@@ -376,7 +482,11 @@ def sign_request(
         payload = json.loads(base64.b64decode(token.split('.')[1] + '=='))
         jti = payload.get('jti', '')
         fingerprint_hash = payload.get('fingerprintHash', '')
-        signing_key = jwt_secret + jti + fingerprint_hash
+        signing_key = hmac.new(
+            jwt_secret.encode(),
+            f'{jti}{fingerprint_hash}'.encode(),
+            hashlib.sha256
+        ).hexdigest()
     else:
         # Public request
         signing_key = fingerprint
@@ -387,7 +497,7 @@ def sign_request(
         hashlib.sha256
     ).hexdigest()
 
-    return timestamp, signature
+    return timestamp, nonce, signature
 
 # Example: Login
 def login(email: str, password: str):
@@ -396,7 +506,7 @@ def login(email: str, password: str):
     body = {'email': email, 'password': password}
     fingerprint = get_device_fingerprint()
 
-    timestamp, signature = sign_request(method, path, body, fingerprint)
+    timestamp, nonce, signature = sign_request(method, path, body, fingerprint)
 
     response = requests.post(
         f'https://api.example.com{path}',
@@ -404,6 +514,7 @@ def login(email: str, password: str):
         headers={
             'X-Request-Timestamp': str(timestamp),
             'X-Request-Fingerprint': fingerprint,
+            'X-Request-Nonce': nonce,
             'X-Request-Signature': signature,
         }
     )
@@ -417,12 +528,13 @@ def login(email: str, password: str):
 # Variables
 FINGERPRINT="my-device-fingerprint"
 TIMESTAMP=$(date +%s)
+NONCE=$(openssl rand -hex 16)
 METHOD="POST"
 PATH="/v1/sessions"
 BODY='{"email":"user@example.com","password":"secret123"}'
 
 # Calculate signature for public endpoint
-DATA="${TIMESTAMP}${FINGERPRINT}${METHOD}${PATH}${BODY}"
+DATA="${TIMESTAMP}${FINGERPRINT}${METHOD}${PATH}${NONCE}${BODY}"
 SIGNATURE=$(echo -n "$DATA" | openssl dgst -sha256 -hmac "$FINGERPRINT" | cut -d' ' -f2)
 
 # Make request
@@ -430,6 +542,7 @@ curl -X POST "https://api.example.com${PATH}" \
   -H "Content-Type: application/json" \
   -H "X-Request-Timestamp: ${TIMESTAMP}" \
   -H "X-Request-Fingerprint: ${FINGERPRINT}" \
+  -H "X-Request-Nonce: ${NONCE}" \
   -H "X-Request-Signature: ${SIGNATURE}" \
   -d "${BODY}"
 ```

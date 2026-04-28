@@ -48,7 +48,7 @@ class RevokeAdminCommand extends Command
             return Command::FAILURE;
         }
 
-        $userUuid = $user['uuid'];
+        $userUuid = $user->uuid;
 
         // Show audit trail
         if ($input->getOption('audit')) {

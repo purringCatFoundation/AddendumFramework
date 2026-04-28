@@ -3,7 +3,9 @@ declare(strict_types=1);
 
 namespace PCF\Addendum\Http\Middleware;
 
+use JsonException;
 use PCF\Addendum\Attribute\ValidateRequest;
+use PCF\Addendum\Exception\HttpException;
 use PCF\Addendum\Validation\RequestValidatorInterface;
 use GuzzleHttp\Psr7\Response as PsrResponse;
 use GuzzleHttp\Psr7\Utils;
@@ -16,6 +18,12 @@ use ReflectionClass;
 
 class ValidateRequestAttribute implements MiddlewareInterface
 {
+    private const int JSON_FLAGS = JSON_THROW_ON_ERROR
+        | JSON_HEX_TAG
+        | JSON_HEX_AMP
+        | JSON_HEX_APOS
+        | JSON_HEX_QUOT;
+
     public function __construct(private readonly string $actionClass)
     {
     }
@@ -29,10 +37,20 @@ class ValidateRequestAttribute implements MiddlewareInterface
      */
     public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
     {
-        $result = $this->validateRequest($request);
+        try {
+            $result = $this->validateRequest($request);
+        } catch (HttpException $exception) {
+            $body = Utils::streamFor(json_encode(['error' => $exception->getMessage()], self::JSON_FLAGS));
+
+            return new PsrResponse(
+                $exception->getStatusCode(),
+                ['Content-Type' => 'application/json'],
+                $body
+            );
+        }
         
         if (!empty($result['errors'])) {
-            $body = Utils::streamFor(json_encode(['errors' => $result['errors']]));
+            $body = Utils::streamFor(json_encode(['errors' => $result['errors']], self::JSON_FLAGS));
             return new PsrResponse(
                 400,
                 ['Content-Type' => 'application/json'],
@@ -112,7 +130,18 @@ class ValidateRequestAttribute implements MiddlewareInterface
         
         if (str_contains($contentType, 'application/json')) {
             $body = (string) $request->getBody();
-            return json_decode($body, true) ?? [];
+
+            if (trim($body) === '') {
+                return [];
+            }
+
+            try {
+                $data = json_decode($body, true, flags: JSON_THROW_ON_ERROR);
+            } catch (JsonException $exception) {
+                throw HttpException::badRequest('Malformed JSON request body');
+            }
+
+            return is_array($data) ? $data : [];
         }
         
         return $request->getParsedBody() ?? [];

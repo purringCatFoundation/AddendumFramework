@@ -126,6 +126,16 @@ class DatabaseTestCommand extends Command
         $this->testDb = $_ENV['TEST_POSTGRES_DB'] ?? getenv('TEST_POSTGRES_DB') ?: $this->mainDb . '_test';
         $this->user = $_ENV['POSTGRES_USER'] ?? getenv('POSTGRES_USER') ?: 'app';
         $this->password = $_ENV['POSTGRES_PASSWORD'] ?? getenv('POSTGRES_PASSWORD') ?: '';
+
+        $this->validateDatabaseName($this->mainDb);
+        $this->validateDatabaseName($this->testDb);
+    }
+
+    private function validateDatabaseName(string $databaseName): void
+    {
+        if (!preg_match('/^[A-Za-z0-9_]+$/', $databaseName)) {
+            throw new \InvalidArgumentException('PostgreSQL database names may contain only letters, digits and underscores');
+        }
     }
 
     private function checkConnection(): bool

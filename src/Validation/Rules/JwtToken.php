@@ -39,7 +39,6 @@ class JwtToken extends AbstractRequestValidator
 
         try {
             $jwtConfig = new JwtConfigFactory()->create();
-            $tokenValidationRepository = new TokenValidationRepositoryFactory()->create();
 
             $payload = Jwt::decode($token, $jwtConfig->secret);
 
@@ -47,6 +46,7 @@ class JwtToken extends AbstractRequestValidator
                 return "Invalid token type, expected '{$this->requiredTokenType}'";
             }
 
+            $tokenValidationRepository = new TokenValidationRepositoryFactory()->create();
             if (!$tokenValidationRepository->isTokenValid($payload->sub, $payload->iat)) {
                 return 'Token has been revoked';
             }

@@ -10,11 +10,14 @@
         }
     ],
     "require-dev": {
+        "php-ds/php-ds": "^1.8",
         "phpunit/phpunit": "^12.3"
     },
     "require": {
         "php": "^8.5",
+        "ext-ds": "*",
         "ext-pdo": "*",
+        "ext-pdo_pgsql": "*",
         "psr/http-message": "^2.0",
         "psr/http-server-handler": "^1.0",
         "psr/http-server-middleware": "^1.0",
@@ -41,10 +44,6 @@
         "psr-4": {
             "PCF\\Addendum\\Tests\\": "dev/tests/phpunit/"
         }
-    },
-    "suggest": {
-        "ext-pdo_pgsql": "Required for PostgreSQL database access",
-        "ext-pdo_mysql": "Required for MySQL database access"
     },
     "minimum-stability": "stable",
     "prefer-stable": true

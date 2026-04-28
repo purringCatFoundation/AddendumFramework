@@ -1,0 +1,4 @@
+name: addendum-framework-dev
+
+include:
+  - path: dev/docker-compose.yaml

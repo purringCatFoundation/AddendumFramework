@@ -168,7 +168,7 @@ final class RequestSignatureTest extends TestCase
         $path = '/protected';
         $bodyContent = '';
 
-        $signingKey = $jti . $fingerprintHash;
+        $signingKey = hash_hmac('sha256', $jti . $fingerprintHash, self::JWT_SECRET);
         $data = $timestamp . $fingerprint . $method . $path . $bodyContent;
         $signature = hash_hmac('sha256', $data, $signingKey);
 
@@ -201,7 +201,7 @@ final class RequestSignatureTest extends TestCase
 
         // Calculate signature using current fingerprint and correct signing key for the stored fingerprint
         // The signature itself will be valid, but fingerprint hash won't match
-        $signingKey = $jti . $storedFingerprintHash;
+        $signingKey = hash_hmac('sha256', $jti . $storedFingerprintHash, self::JWT_SECRET);
         $data = $timestamp . $fingerprint . $method . $path . '';
         $signature = hash_hmac('sha256', $data, $signingKey);
 

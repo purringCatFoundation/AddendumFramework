@@ -6,7 +6,7 @@ namespace PCF\Addendum\Tests\Action;
 use PCF\Addendum\Action\User\DeleteSessionAction;
 use PCF\Addendum\Auth\AuthService;
 use PCF\Addendum\Http\Request;
-use PCF\Addendum\Response\User\LogoutResponse;
+use PCF\Addendum\Response\NoContentResponse;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 
@@ -39,7 +39,7 @@ final class DeleteSessionActionTest extends TestCase
 
         $response = ($this->logoutAction)($mockRequest);
 
-        $this->assertInstanceOf(LogoutResponse::class, $response);
+        $this->assertInstanceOf(NoContentResponse::class, $response);
     }
 
     public function testInvokeWithNullUserUuid(): void

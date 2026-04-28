@@ -9,18 +9,18 @@ use PCF\Addendum\Attribute\Route;
 use PCF\Addendum\Auth\AuthService;
 use PCF\Addendum\Http\Request;
 use PCF\Addendum\Http\Middleware\Auth;
-use PCF\Addendum\Response\User\LogoutResponse;
+use PCF\Addendum\Response\NoContentResponse;
 
 /**
  * Logout action - revokes current session
  *
  * Example request:
- * DELETE /v1/sessions
+ * DELETE /v1/sessions/current
  * Authorization: Bearer <access_token>
  *
  * Example response: 204 No Content
  */
-#[Route(path: '/v1/sessions', method: 'DELETE')]
+#[Route(path: '/v1/sessions/current', method: 'DELETE')]
 #[Middleware(Auth::class)]
 class DeleteSessionAction implements ActionInterface
 {
@@ -28,12 +28,12 @@ class DeleteSessionAction implements ActionInterface
     {
     }
 
-    public function __invoke(Request $request): LogoutResponse
+    public function __invoke(Request $request): NoContentResponse
     {
         $userUuid = $request->get('user_uuid');
 
         $this->authService->logout($userUuid, 'user_logout');
 
-        return new LogoutResponse(true, 'Logged out successfully');
+        return new NoContentResponse();
     }
 }

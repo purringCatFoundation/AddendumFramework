@@ -11,7 +11,7 @@ use JsonSerializable;
  * Wraps any JsonSerializable response and returns 201 status code.
  * Used for POST operations that create new resources.
  */
-final readonly class CreatedResponse implements JsonSerializable, HttpStatusAware
+final readonly class CreatedResponse implements JsonSerializable, HttpStatusAware, HttpHeadersAware
 {
     public function __construct(private JsonSerializable $wrapped)
     {
@@ -25,5 +25,12 @@ final readonly class CreatedResponse implements JsonSerializable, HttpStatusAwar
     public function jsonSerialize(): mixed
     {
         return $this->wrapped->jsonSerialize();
+    }
+
+    public function getHeaders(): array
+    {
+        return $this->wrapped instanceof HttpHeadersAware
+            ? $this->wrapped->getHeaders()
+            : [];
     }
 }

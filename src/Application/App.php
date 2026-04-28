@@ -14,6 +14,12 @@ use Psr\Log\LoggerInterface;
 
 class App implements RequestHandlerInterface
 {
+    private const int JSON_FLAGS = JSON_THROW_ON_ERROR
+        | JSON_HEX_TAG
+        | JSON_HEX_AMP
+        | JSON_HEX_APOS
+        | JSON_HEX_QUOT;
+
     public function __construct(
         private Router $router,
         private LoggerInterface $logger
@@ -25,16 +31,33 @@ class App implements RequestHandlerInterface
         try {
             $match = $this->router->match($request);
             if ($match === null) {
-                $body = Utils::streamFor(json_encode(['error' => 'Not found']));
-                return new PsrResponse(
-                    status: 404,
-                    headers: ['Content-Type' => 'application/json'],
-                    body: $body
-                );
+                $allowedMethods = $this->router->getAllowedMethodsForPath($request->getUri()->getPath());
+                if ($allowedMethods !== []) {
+                    $response = $this->jsonResponse(
+                        ['error' => 'Method Not Allowed'],
+                        405,
+                        ['Allow' => implode(', ', $allowedMethods)]
+                    );
+
+                    return $this->withSecurityHeaders($response);
+                }
+
+                $response = $this->jsonResponse(['error' => 'Not found'], 404);
+
+                return $this->withSecurityHeaders($response);
             }
+
+            if (!$this->acceptsJson($request)) {
+                return $this->withSecurityHeaders($this->jsonResponse(['error' => 'Not acceptable'], 406));
+            }
+
+            if (!$this->hasSupportedContentType($request)) {
+                return $this->withSecurityHeaders($this->jsonResponse(['error' => 'Unsupported media type'], 415));
+            }
+
             $handler = new ActionRequestHandlerFactory($this->logger)->create($match);
 
-            return $handler->handle($match->request);
+            return $this->withSecurityHeaders($handler->handle($match->request));
         } catch (\Throwable $e) {
             $this->logger->error('Unhandled exception in application', [
                 'exception' => get_class($e),
@@ -46,14 +69,96 @@ class App implements RequestHandlerInterface
 
             $body = Utils::streamFor(json_encode([
                 'error' => 'Internal server error',
-                'message' => ($_ENV['DEBUG'] ?? 'false') === 'true' ? $e->getMessage() : 'An unexpected error occurred'
-            ]));
+                'message' => 'An unexpected error occurred'
+            ], self::JSON_FLAGS));
 
-            return new PsrResponse(
+            $response = new PsrResponse(
                 status: 500,
                 headers: ['Content-Type' => 'application/json'],
                 body: $body
             );
+
+            return $this->withSecurityHeaders($response);
         }
+    }
+
+    /**
+     * @param array<string, mixed> $payload
+     * @param array<string, string> $headers
+     */
+    private function jsonResponse(array $payload, int $statusCode, array $headers = []): ResponseInterface
+    {
+        return new PsrResponse(
+            status: $statusCode,
+            headers: array_merge(['Content-Type' => 'application/json'], $headers),
+            body: Utils::streamFor(json_encode($payload, self::JSON_FLAGS))
+        );
+    }
+
+    private function acceptsJson(ServerRequestInterface $request): bool
+    {
+        $accept = trim($request->getHeaderLine('Accept'));
+        if ($accept === '') {
+            return true;
+        }
+
+        foreach (explode(',', $accept) as $acceptedType) {
+            $mediaType = strtolower(trim(explode(';', $acceptedType)[0]));
+            if (in_array($mediaType, ['*/*', 'application/*', 'application/json', 'application/problem+json'], true)) {
+                return true;
+            }
+
+            if (str_ends_with($mediaType, '+json')) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function hasSupportedContentType(ServerRequestInterface $request): bool
+    {
+        if (!in_array($request->getMethod(), ['POST', 'PUT', 'PATCH'], true)) {
+            return true;
+        }
+
+        if (!$this->requestHasBody($request)) {
+            return true;
+        }
+
+        $contentType = strtolower(trim(explode(';', $request->getHeaderLine('Content-Type'))[0]));
+
+        return $contentType === 'application/json' || str_ends_with($contentType, '+json');
+    }
+
+    private function requestHasBody(ServerRequestInterface $request): bool
+    {
+        $body = $request->getBody();
+        $size = $body->getSize();
+
+        if ($size !== null) {
+            return $size > 0;
+        }
+
+        $position = $body->isSeekable() ? $body->tell() : null;
+        $contents = (string) $body;
+
+        if ($position !== null) {
+            $body->seek($position);
+        }
+
+        return trim($contents) !== '';
+    }
+
+    private function withSecurityHeaders(ResponseInterface $response): ResponseInterface
+    {
+        return $response
+            ->withHeader('X-Content-Type-Options', 'nosniff')
+            ->withHeader('X-Frame-Options', 'DENY')
+            ->withHeader('X-XSS-Protection', '1; mode=block')
+            ->withHeader('Content-Security-Policy', "default-src 'none'; frame-ancestors 'none'")
+            ->withHeader('Referrer-Policy', 'strict-origin-when-cross-origin')
+            ->withoutHeader('X-Powered-By')
+            ->withoutHeader('Server');
     }
 }

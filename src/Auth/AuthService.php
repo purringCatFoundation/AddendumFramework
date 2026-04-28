@@ -24,9 +24,8 @@ class AuthService
      *
      * @param string $email User email address
      * @param string $password User password
-     * @return array Created user data
      */
-    public function register(string $email, string $password): array
+    public function register(string $email, string $password): RegisteredUser
     {
         return $this->repository->createUser($email, $password);
     }
@@ -37,16 +36,15 @@ class AuthService
      * @param string $email User email address
      * @param string $password User password
      * @param string $fingerprint Device fingerprint from client
-     * @return array Access and refresh tokens
      * @throws InvalidCredentialsException When credentials are invalid
      */
-    public function login(string $email, string $password, string $fingerprint): array
+    public function login(string $email, string $password, string $fingerprint): TokenPair
     {
         $user = $this->repository->findUserByEmail($email);
         $hash = null;
 
         if ($user) {
-            $hash = $this->repository->latestPasswordHash((int) $user['id']);
+            $hash = $this->repository->latestPasswordHash($user->id);
         }
 
         $dummyHash = '$argon2id$v=19$m=65536,t=4,p=3$c29tZXNhbHQxMjM0NTY3OA$hash';
@@ -57,7 +55,7 @@ class AuthService
             throw new InvalidCredentialsException();
         }
 
-        return $this->createTokenPair($user['uuid'], $fingerprint);
+        return $this->createTokenPair($user->uuid, $fingerprint);
     }
 
     /**
@@ -65,10 +63,9 @@ class AuthService
      *
      * @param string $token Valid refresh token
      * @param string $fingerprint Device fingerprint from client
-     * @return string New access token
      * @throws UnauthorizedException When token is invalid or revoked
      */
-    public function refresh(string $token, string $fingerprint): array
+    public function refresh(string $token, string $fingerprint): TokenPair
     {
         $payload = Jwt::decode($token, $this->jwtConfig->secret);
 
@@ -120,9 +117,8 @@ class AuthService
      * @param string $userUuid User identifier (owner of character)
      * @param string $characterUuid Character identifier
      * @param string $fingerprint Device fingerprint from client
-     * @return array Token pair with character context
      */
-    public function selectCharacter(string $userUuid, string $characterUuid, string $fingerprint): array
+    public function selectCharacter(string $userUuid, string $characterUuid, string $fingerprint): TokenPair
     {
         $now = time();
         $fingerprintHash = sha1($fingerprint);
@@ -151,13 +147,14 @@ class AuthService
             $fingerprintHash
         ), $this->jwtConfig->secret);
 
-        return [
-            'access_token' => $accessToken,
-            'refresh_token' => $refreshToken,
-            'expires_in' => $this->jwtConfig->accessTokenLifetime,
-            'token_type' => $tokenType->value,
-            'character_uuid' => $characterUuid,
-        ];
+        return new TokenPair(
+            accessToken: $accessToken,
+            refreshToken: $refreshToken,
+            expiresIn: $this->jwtConfig->accessTokenLifetime,
+            tokenType: $tokenType->value,
+            isAdmin: $isAdmin,
+            characterUuid: $characterUuid
+        );
     }
 
     /**
@@ -169,9 +166,8 @@ class AuthService
      *
      * @param string $userUuid User identifier
      * @param string $fingerprint Device fingerprint from client
-     * @return array Token pair with expiration info
      */
-    private function createTokenPair(string $userUuid, string $fingerprint): array
+    private function createTokenPair(string $userUuid, string $fingerprint): TokenPair
     {
         $now = time();
         $fingerprintHash = sha1($fingerprint);
@@ -200,12 +196,12 @@ class AuthService
             $fingerprintHash
         ), $this->jwtConfig->secret);
 
-        return [
-            'access_token' => $accessToken,
-            'refresh_token' => $refreshToken,
-            'expires_in' => $this->jwtConfig->accessTokenLifetime,
-            'token_type' => 'Bearer',
-            'is_admin' => $isAdmin
-        ];
+        return new TokenPair(
+            accessToken: $accessToken,
+            refreshToken: $refreshToken,
+            expiresIn: $this->jwtConfig->accessTokenLifetime,
+            tokenType: 'Bearer',
+            isAdmin: $isAdmin
+        );
     }
 }

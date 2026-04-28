@@ -5,7 +5,7 @@ namespace PCF\Addendum\Auth;
 
 interface AuthRepositoryInterface
 {
-    public function createUser(string $email, string $password): array;
-    public function findUserByEmail(string $email): ?array;
+    public function createUser(string $email, string $password): RegisteredUser;
+    public function findUserByEmail(string $email): ?UserIdentity;
     public function latestPasswordHash(int $userId): ?string;
 }

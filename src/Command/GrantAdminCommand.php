@@ -65,7 +65,7 @@ class GrantAdminCommand extends Command
             return Command::FAILURE;
         }
 
-        $userUuid = $user['uuid'];
+        $userUuid = $user->uuid;
 
         // Check if already admin
         if ($this->adminRepository->isUserAdmin($userUuid)) {
