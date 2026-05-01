@@ -4,15 +4,15 @@ declare(strict_types=1);
 namespace PCF\Addendum\Application;
 
 use GuzzleHttp\Psr7\ServerRequest;
+use PCF\Addendum\Attribute\AttributeReader;
+use PCF\Addendum\Attribute\AttributeReaderFactory;
 use PCF\Addendum\Attribute\Actions;
 use PCF\Addendum\Attribute\Commands;
 use PCF\Addendum\Attribute\Name;
 use PCF\Addendum\Attribute\Version;
 use PCF\Addendum\Command\CommandScanner;
-use PCF\Addendum\Config\SystemEnvironmentProvider;
+use PCF\Addendum\Http\Cache\HttpCacheRuntimeFactory;
 use PCF\Addendum\Http\Routing\ActionScanner;
-use PCF\Addendum\Http\RouterFactory;
-use PCF\Addendum\Log\MonologFactory;
 use Psr\Http\Message\ResponseInterface;
 use ReflectionClass;
 use Symfony\Component\Console\Application as ConsoleApplication;
@@ -42,6 +42,12 @@ abstract class Application
     private ?array $actionPaths = null;
     private ?array $commandPaths = null;
     private ?string $frameworkDir = null;
+    private AttributeReader $attributeReader;
+
+    public function __construct(?AttributeReaderFactory $attributeReaderFactory = null)
+    {
+        $this->attributeReader = ($attributeReaderFactory ?? new AttributeReaderFactory())->create($this);
+    }
 
     /**
      * Run HTTP application
@@ -91,7 +97,7 @@ abstract class Application
     public function getName(): string
     {
         if ($this->name === null) {
-            $this->name = $this->getAttributeValue(Name::class, 'value', 'Application');
+            $this->name = $this->attributeReader->getAttributeValues(Name::class, 'value')->getFirst('Application');
         }
 
         return $this->name;
@@ -103,7 +109,7 @@ abstract class Application
     public function getVersion(): string
     {
         if ($this->version === null) {
-            $this->version = $this->getAttributeValue(Version::class, 'value', '1.0.0');
+            $this->version = $this->attributeReader->getAttributeValues(Version::class, 'value')->getFirst('1.0.0');
         }
 
         return $this->version;
@@ -130,7 +136,7 @@ abstract class Application
             }
 
             // Application actions from attributes
-            $paths = array_merge($paths, $this->getAttributeValues(Actions::class, 'path'));
+            $paths = array_merge($paths, $this->attributeReader->getAttributeValues(Actions::class, 'path')->getValues());
 
             $this->actionPaths = $paths;
         }
@@ -155,7 +161,7 @@ abstract class Application
             }
 
             // Application commands from attributes
-            $paths = array_merge($paths, $this->getAttributeValues(Commands::class, 'path'));
+            $paths = array_merge($paths, $this->attributeReader->getAttributeValues(Commands::class, 'path')->getValues());
 
             $this->commandPaths = $paths;
         }
@@ -196,7 +202,7 @@ abstract class Application
         $envFile = $projectDir . '/.env';
 
         if (file_exists($envFile)) {
-            (new Dotenv())->loadEnv($envFile);
+            new Dotenv()->loadEnv($envFile);
         }
     }
 
@@ -218,12 +224,9 @@ abstract class Application
             fn(string $path) => new ActionScanner($path),
             $this->getActionPaths()
         );
+        $httpCacheRuntimeFactory = new HttpCacheRuntimeFactory()->create();
 
-        $router = (new RouterFactory($scanners))->create();
-        $environmentProvider = new SystemEnvironmentProvider();
-        $logger = (new MonologFactory($environmentProvider))->create();
-
-        return new App($router, $logger);
+        return new AppFactory($scanners, $httpCacheRuntimeFactory)->create();
     }
 
     /**
@@ -257,7 +260,7 @@ abstract class Application
                 description: $definition['description'],
                 isHidden: false,
                 commandFactory: $factoryClass !== null
-                    ? fn() => (new $factoryClass())->create()
+                    ? fn() => new $factoryClass()->create()
                     : fn() => new $commandClass(),
             ));
         }
@@ -287,40 +290,5 @@ abstract class Application
         }
 
         fclose($output);
-    }
-
-    /**
-     * Get single attribute value
-     */
-    private function getAttributeValue(string $attributeClass, string $property, mixed $default = null): mixed
-    {
-        $reflection = new ReflectionClass(static::class);
-        $attributes = $reflection->getAttributes($attributeClass);
-
-        if (empty($attributes)) {
-            return $default;
-        }
-
-        $instance = $attributes[0]->newInstance();
-
-        return $instance->$property ?? $default;
-    }
-
-    /**
-     * Get all values from repeatable attributes
-     */
-    private function getAttributeValues(string $attributeClass, string $property): array
-    {
-        $reflection = new ReflectionClass(static::class);
-        $attributes = $reflection->getAttributes($attributeClass);
-
-        $values = [];
-
-        foreach ($attributes as $attribute) {
-            $instance = $attribute->newInstance();
-            $values[] = $instance->$property;
-        }
-
-        return $values;
     }
 }

@@ -10,9 +10,9 @@ class LogoutCommandFactory
 {
     public function create(): LogoutCommand
     {
-        $repository = (new TokenValidationRepositoryFactory(
+        $repository = new TokenValidationRepositoryFactory(
             new DbConnectionFactory()
-        ))->create();
+        )->create();
 
         return new LogoutCommand($repository);
     }

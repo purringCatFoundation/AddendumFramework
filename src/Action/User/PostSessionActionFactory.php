@@ -10,7 +10,7 @@ class PostSessionActionFactory implements ActionFactoryInterface
 {
     public function create(): PostSessionAction
     {
-        $service = (new AuthServiceFactory())->create();
+        $service = new AuthServiceFactory()->create();
 
         return new PostSessionAction($service);
     }

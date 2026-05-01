@@ -9,6 +9,7 @@ A PHP 8.5-only API framework with attribute-based routing, JWT authentication, r
 - **Request Signatures** - HMAC-SHA256 request signing with device binding for security
 - **Middleware Pipeline** - PSR-15 compliant middleware system
 - **Validation** - Declarative request validation with `#[ValidateRequest]` attributes
+- **HTTP Caching** - Attribute-driven cache headers for Varnish, Nginx, Caddy and Cloudflare
 - **CLI Support** - Symfony Console integration with auto-discovered commands
 - **Rate Limiting** - Built-in rate limiting middleware
 
@@ -224,13 +225,93 @@ JWT_SECRET=your-secret-key-min-32-characters
 # Application
 APP_ENV=development
 DEBUG=true
+
+# HTTP cache (disabled by default)
+HTTP_CACHE_PROVIDER=none
 ```
+
+---
+
+## HTTP Caching
+
+See [`docs/http-cache.md`](docs/http-cache.md) for the full provider, security and cache-layer configuration guide.
+
+HTTP cache is disabled by default. Enable exactly one backend in `.env`:
+
+```env
+HTTP_CACHE_PROVIDER=redis
+HTTP_CACHE_SECRET=change-me
+REDIS_HTTP_CACHE_HOST=redis
+REDIS_HTTP_CACHE_PORT=6379
+REDIS_HTTP_CACHE_DATABASE=1
+REDIS_HTTP_CACHE_KEY_PREFIX=addendum:http_cache:
+HTTP_CACHE_DEBUG_HEADERS=false
+```
+
+Describe cacheable resources per action with repeatable `#[ResourcePolicy]`:
+
+```php
+use PCF\Addendum\Attribute\ResourcePolicy;
+use PCF\Addendum\Http\Cache\HttpCacheMode;
+
+#[ResourcePolicy(
+    mode: HttpCacheMode::PUBLIC,
+    maxAge: 300,
+    resource: 'article',
+    idAttribute: 'articleUuid'
+)]
+final class GetArticlesAction
+{
+}
+```
+
+Cache modes:
+
+| Mode | Behavior |
+|------|----------|
+| `PUBLIC` | Same response for every caller. Emits normal shared-cache headers. |
+| `GUEST_AWARE` | Same data shape, but different guest/authenticated variants. Adds `Vary: X-Auth-State`. |
+| `USER_AWARE` | Per-user-context shared cache. Requires trusted `X-User-Context-Hash` and `X-User-Context-Signature`; otherwise falls back to `Cache-Control: private, no-store`. |
+| `PRIVATE` | Explicit `private, no-store`. |
+
+`GET`, `HEAD` and `OPTIONS` responses can be stored in Redis and emitted with HTTP cache headers. `POST`, `PUT`, `DELETE` and `PATCH` responses never store cache entries; they invalidate resources declared by repeatable `#[ResourcePolicy]` and return `X-Cache-Invalidate`.
+
+```php
+#[ResourcePolicy(mode: HttpCacheMode::PUBLIC, maxAge: 300, resource: 'articles')]
+#[ResourcePolicy(mode: HttpCacheMode::PUBLIC, maxAge: 300, resource: 'article', idAttribute: 'articleUuid')]
+final class PatchArticleAction
+{
+}
+```
+
+Provider-specific headers are emitted on cacheable responses and, for tag headers, on successful mutation responses so intermediaries can invalidate matching cached objects:
+
+| Provider | Headers |
+|----------|---------|
+| Varnish | `Surrogate-Control`, `Surrogate-Key` |
+| Nginx | `X-Accel-Expires`, `X-Cache-Tags` |
+| Caddy | `X-Cache-Tags` or `Souin-Cache-Tags` |
+| Cloudflare | `CDN-Cache-Control`, `Cloudflare-CDN-Cache-Control`, `Cache-Tag` |
+
+`4xx` and `5xx` responses become `private, no-store` unless the first resource policy sets `cacheErrors: true`. Redis response cache uses `maxAge` as the TTL.
+
+`APP_ENV=dev` enables cache diagnostics by default. Responses include `X-Http-Cache: HIT|MISS|INVALIDATE` and `X-Http-Cache-Provider`. Set `HTTP_CACHE_DEBUG_HEADERS=false` to suppress them.
+
+For `USER_AWARE`, the HTTP cache layer must strip inbound `X-Auth-State`, `X-User-Context-Hash` and `X-User-Context-Signature` from client requests, then inject trusted values before origin/cache lookup. The user context signature is:
+
+```text
+HMAC-SHA256(HTTP_CACHE_SECRET, userUuid + "|" + tokenType + "|" + userContextHash)
+```
+
+Never trust cache context headers sent directly by clients.
 
 ---
 
 ## Request Signatures
 
-All API requests must include signature headers for security. This protects against:
+Authenticated framework routes must include signature headers when they declare `Auth` middleware directly with `#[Middleware(Auth::class)]` or indirectly through `#[AccessControl(...)]`. Public routes do not require request signatures unless your application explicitly adds `RequestSignature` middleware to them.
+
+Request signatures protect against:
 
 - Request tampering
 - Replay attacks
@@ -239,7 +320,7 @@ All API requests must include signature headers for security. This protects agai
 
 ### Required Headers
 
-Every request must include these headers:
+Signed requests must include these headers:
 
 | Header | Description |
 |--------|-------------|
@@ -253,9 +334,9 @@ Do not expose `JWT_SECRET` to browser or mobile clients. Authenticated request s
 
 ### Signature Calculation
 
-#### Public Endpoints (Login, Register)
+#### Public Endpoints With Explicit Signature Middleware
 
-For unauthenticated endpoints, the signature uses the fingerprint as the signing key:
+If an unauthenticated endpoint explicitly uses `RequestSignature`, the signature uses the fingerprint as the signing key:
 
 ```
 data = timestamp + fingerprint + method + pathWithQuery + nonce + body
@@ -290,6 +371,8 @@ JWT tokens are bound to specific devices:
 ## Client Implementation Examples
 
 ### JavaScript/TypeScript
+
+The examples below show signed requests. Use this flow for authenticated routes, or for public routes only when your application explicitly applies `RequestSignature` middleware.
 
 ```typescript
 import crypto from 'crypto';
@@ -559,15 +642,15 @@ The framework includes these built-in endpoints:
 |--------|------|-------------|
 | `POST` | `/v1/users` | Register new user |
 | `POST` | `/v1/sessions` | Login (get tokens) |
-| `POST` | `/v1/sessions/refresh` | Refresh access token |
-| `DELETE` | `/v1/sessions` | Logout |
+| `POST` | `/v1/session-refreshes` | Refresh access token |
+| `DELETE` | `/v1/sessions/current` | Logout current session |
 
 ### User Management
 
 | Method | Path | Description |
 |--------|------|-------------|
 | `GET` | `/v1/users/me` | Get current user profile |
-| `GET` | `/v1/users/:uuid` | Get user by UUID |
+| `GET` | `/v1/users/:userUuid` | Get user by UUID |
 | `PATCH` | `/v1/users/me` | Update profile |
 | `DELETE` | `/v1/users/me` | Delete account |
 
@@ -575,7 +658,7 @@ The framework includes these built-in endpoints:
 
 | Method | Path | Description |
 |--------|------|-------------|
-| `DELETE` | `/v1/admin/tokens` | Revoke tokens (admin only) |
+| `POST` | `/v1/admin/token-revocations` | Revoke tokens (admin only) |
 
 ---
 
@@ -606,7 +689,7 @@ php bin/app app:revoke-tokens --application=<name>
 php bin/app cron:run
 
 # Cache management
-php bin/app cache:clear-proxy
+php bin/app http-cache:clear
 ```
 
 ---

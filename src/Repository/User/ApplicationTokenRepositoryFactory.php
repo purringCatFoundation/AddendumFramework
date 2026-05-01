@@ -10,7 +10,7 @@ class ApplicationTokenRepositoryFactory implements FactoryInterface
 {
     public function create(): ApplicationTokenRepository
     {
-        $pdo = (new DbConnectionFactory())->create();
+        $pdo = new DbConnectionFactory()->create();
 
         return new ApplicationTokenRepository($pdo);
     }

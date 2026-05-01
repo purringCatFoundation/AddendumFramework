@@ -1,14 +1,12 @@
 <?php
 declare(strict_types=1);
 
-use PCF\Addendum\Application\AppFactory;
-use PCF\Addendum\Application\Main;
-use PCF\Addendum\Http\Routing\ActionScanner;
+use PCF\Addendum\Dev\DevApp;
 
 $rootDir = dirname(__DIR__, 3);
 
 require $rootDir . '/vendor/autoload.php';
+require $rootDir . '/dev/frankenphp/DevApp.php';
+require $rootDir . '/dev/frankenphp/bootstrap.php';
 
-(new Main(new AppFactory([
-    new ActionScanner($rootDir . '/src/Action'),
-])))->execute();
+DevApp::http();

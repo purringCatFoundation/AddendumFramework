@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace PCF\Addendum\Http;
 
+use PCF\Addendum\Http\Cache\ResourcePolicyCollection;
 use Psr\Http\Message\ServerRequestInterface;
 use RuntimeException;
 
@@ -14,7 +15,8 @@ class RegisteredRoute
     public function __construct(
         public readonly string $pattern,
         public readonly string $actionClass,
-        public readonly array $middlewares = []
+        public readonly array $middlewares = [],
+        public readonly ResourcePolicyCollection $resourcePolicies
     ) {
     }
 
@@ -55,7 +57,8 @@ class RegisteredRoute
         return new RouteMatch(
             $this->actionClass,
             $middlewaresWithActionClass,
-            $request
+            $request,
+            $this->resourcePolicies
         );
     }
 }

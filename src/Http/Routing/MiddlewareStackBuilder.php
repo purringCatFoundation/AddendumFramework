@@ -38,9 +38,8 @@ class MiddlewareStackBuilder
     /**
      * Builds the middleware stack for the given action class
      *
-     * Special handling: RequestSignature middleware is automatically positioned:
-     * - After Auth middleware if Auth is present
-     * - At the beginning of the stack if Auth is not present
+     * Infrastructure middleware is sorted into a stable order so security and validation
+     * run before response decoration middleware.
      *
      * @param ReflectionClass $actionClass
      * @return list<RouteMiddleware>

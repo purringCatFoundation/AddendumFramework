@@ -3,6 +3,9 @@ declare(strict_types=1);
 
 namespace PCF\Addendum\Tests\Http;
 
+use PCF\Addendum\Attribute\ResourcePolicy;
+use PCF\Addendum\Http\Cache\HttpCacheMode;
+use PCF\Addendum\Http\Cache\ResourcePolicyCollection;
 use PCF\Addendum\Http\MiddlewareOptions;
 use PCF\Addendum\Http\RegisteredRoute;
 use PCF\Addendum\Http\RouteMiddleware;
@@ -18,11 +21,13 @@ class RegisteredRouteTest extends TestCase
             new MiddlewareOptions('TestAction')
         );
         
-        $route = new RegisteredRoute('/test', 'TestAction', [$middleware]);
+        $policies = $this->resourcePolicies();
+        $route = new RegisteredRoute('/test', 'TestAction', [$middleware], $policies);
         
         $this->assertEquals('/test', $route->pattern);
         $this->assertEquals('TestAction', $route->actionClass);
         $this->assertEquals([$middleware], $route->middlewares);
+        $this->assertSame($policies, $route->resourcePolicies);
     }
 
     public function testMiddlewareAccess(): void
@@ -32,7 +37,7 @@ class RegisteredRouteTest extends TestCase
             new MiddlewareOptions('TestAction', ['key' => 'value'])
         );
         
-        $route = new RegisteredRoute('/test', 'TestAction', [$middleware]);
+        $route = new RegisteredRoute('/test', 'TestAction', [$middleware], $this->resourcePolicies());
         
         $this->assertEquals('/test', $route->pattern);
         $this->assertEquals('TestAction', $route->actionClass);
@@ -43,7 +48,7 @@ class RegisteredRouteTest extends TestCase
 
     public function testMatches(): void
     {
-        $route = new RegisteredRoute('#^/test/([^/]+)$#', 'TestAction', []);
+        $route = new RegisteredRoute('#^/test/([^/]+)$#', 'TestAction', [], $this->resourcePolicies());
         
         $this->assertNotNull($route->matches('/test/value'));
         $this->assertNull($route->matches('/other/path'));
@@ -56,7 +61,7 @@ class RegisteredRouteTest extends TestCase
             new MiddlewareOptions('', ['key' => 'value'])
         );
         
-        $route = new RegisteredRoute('#^/test/(?P<id>[^/]+)$#', 'TestAction', [$middleware]);
+        $route = new RegisteredRoute('#^/test/(?P<id>[^/]+)$#', 'TestAction', [$middleware], $this->resourcePolicies());
         $request = new ServerRequest('GET', '/test/123');
         
         $match = $route->createMatchResult($request);
@@ -65,5 +70,23 @@ class RegisteredRouteTest extends TestCase
         $this->assertEquals('123', $match->request->getAttribute('id'));
         $this->assertCount(1, $match->middlewares);
         $this->assertEquals('TestAction', $match->middlewares[0]->getOptions()->actionClass);
+    }
+
+    public function testCreateMatchResultIncludesResourcePolicies(): void
+    {
+        $policies = $this->resourcePolicies();
+        $route = new RegisteredRoute('#^/test$#', 'TestAction', [], $policies);
+        $request = new ServerRequest('GET', '/test');
+
+        $match = $route->createMatchResult($request);
+
+        $this->assertSame($policies, $match->resourcePolicies);
+    }
+
+    private function resourcePolicies(): ResourcePolicyCollection
+    {
+        return new ResourcePolicyCollection([
+            new ResourcePolicy(mode: HttpCacheMode::PUBLIC, maxAge: 60, resource: 'test'),
+        ]);
     }
 }

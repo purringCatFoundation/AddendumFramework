@@ -1,0 +1,32 @@
+{
+  "name": "addendum-dev-http-cache",
+  "description": "Respect Addendum origin cache headers for dev HTTP cache endpoints.",
+  "kind": "zone",
+  "phase": "http_request_cache_settings",
+  "rules": [
+    {
+      "description": "Cache Addendum dev HTTP cache reads at the edge",
+      "expression": "(http.request.uri.path contains \"/dev/http-cache/\" and http.request.method in {\"GET\" \"HEAD\" \"OPTIONS\"})",
+      "action": "set_cache_settings",
+      "action_parameters": {
+        "cache": true,
+        "edge_ttl": {
+          "mode": "respect_origin"
+        },
+        "browser_ttl": {
+          "mode": "respect_origin"
+        }
+      },
+      "enabled": true
+    },
+    {
+      "description": "Do not cache Addendum dev HTTP cache mutations",
+      "expression": "(http.request.uri.path contains \"/dev/http-cache/\" and not http.request.method in {\"GET\" \"HEAD\" \"OPTIONS\"})",
+      "action": "set_cache_settings",
+      "action_parameters": {
+        "cache": false
+      },
+      "enabled": true
+    }
+  ]
+}

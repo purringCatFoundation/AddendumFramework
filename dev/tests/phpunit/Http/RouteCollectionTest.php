@@ -3,6 +3,9 @@ declare(strict_types=1);
 
 namespace PCF\Addendum\Tests\Http;
 
+use PCF\Addendum\Attribute\ResourcePolicy;
+use PCF\Addendum\Http\Cache\HttpCacheMode;
+use PCF\Addendum\Http\Cache\ResourcePolicyCollection;
 use PCF\Addendum\Http\RegisteredRoute;
 use PCF\Addendum\Http\RouteCollection;
 use GuzzleHttp\Psr7\ServerRequest;
@@ -13,7 +16,7 @@ class RouteCollectionTest extends TestCase
     public function testAddRouteAndGetRoutesForMethod(): void
     {
         $collection = new RouteCollection();
-        $route = new RegisteredRoute('/test', 'TestAction', []);
+        $route = new RegisteredRoute('/test', 'TestAction', [], $this->resourcePolicies());
         
         $collection->addRoute('GET', $route);
         
@@ -27,7 +30,7 @@ class RouteCollectionTest extends TestCase
     public function testMatch(): void
     {
         $collection = new RouteCollection();
-        $route = new RegisteredRoute('#^/test/(?P<id>[^/]+)$#', 'TestAction', []);
+        $route = new RegisteredRoute('#^/test/(?P<id>[^/]+)$#', 'TestAction', [], $this->resourcePolicies());
         
         $collection->addRoute('GET', $route);
         
@@ -42,7 +45,7 @@ class RouteCollectionTest extends TestCase
     public function testMatchReturnsNullForNoMatch(): void
     {
         $collection = new RouteCollection();
-        $route = new RegisteredRoute('#^/test$#', 'TestAction', []);
+        $route = new RegisteredRoute('#^/test$#', 'TestAction', [], $this->resourcePolicies());
         
         $collection->addRoute('GET', $route);
         
@@ -56,8 +59,8 @@ class RouteCollectionTest extends TestCase
     {
         $collection = new RouteCollection();
 
-        $collection->addRoute('GET', new RegisteredRoute('#^/test$#', 'GetTestAction', []));
-        $collection->addRoute('PATCH', new RegisteredRoute('#^/test$#', 'PatchTestAction', []));
+        $collection->addRoute('GET', new RegisteredRoute('#^/test$#', 'GetTestAction', [], $this->resourcePolicies()));
+        $collection->addRoute('PATCH', new RegisteredRoute('#^/test$#', 'PatchTestAction', [], $this->resourcePolicies()));
 
         $this->assertSame(['GET', 'PATCH'], $collection->getAllowedMethodsForPath('/test'));
         $this->assertSame([], $collection->getAllowedMethodsForPath('/missing'));
@@ -66,8 +69,8 @@ class RouteCollectionTest extends TestCase
     public function testGetAllRoutes(): void
     {
         $collection = new RouteCollection();
-        $route1 = new RegisteredRoute('/test1', 'TestAction1', []);
-        $route2 = new RegisteredRoute('/test2', 'TestAction2', []);
+        $route1 = new RegisteredRoute('/test1', 'TestAction1', [], $this->resourcePolicies());
+        $route2 = new RegisteredRoute('/test2', 'TestAction2', [], $this->resourcePolicies());
         
         $collection->addRoute('GET', $route1);
         $collection->addRoute('POST', $route2);
@@ -85,12 +88,19 @@ class RouteCollectionTest extends TestCase
     public function testClear(): void
     {
         $collection = new RouteCollection();
-        $route = new RegisteredRoute('/test', 'TestAction', []);
+        $route = new RegisteredRoute('/test', 'TestAction', [], $this->resourcePolicies());
         
         $collection->addRoute('GET', $route);
         $this->assertNotEmpty($collection->getRoutesForMethod('GET'));
         
         $collection->clear();
         $this->assertEmpty($collection->getRoutesForMethod('GET'));
+    }
+
+    private function resourcePolicies(): ResourcePolicyCollection
+    {
+        return new ResourcePolicyCollection([
+            new ResourcePolicy(mode: HttpCacheMode::PUBLIC, maxAge: 60, resource: 'test'),
+        ]);
     }
 }

@@ -3,10 +3,13 @@ declare(strict_types=1);
 
 namespace PCF\Addendum\Application;
 
-use PCF\Addendum\Http\Router;
 use PCF\Addendum\Action\ActionRequestHandlerFactory;
 use GuzzleHttp\Psr7\Response as PsrResponse;
 use GuzzleHttp\Psr7\Utils;
+use PCF\Addendum\Http\Cache\HttpCacheRuntime;
+use PCF\Addendum\Http\Middleware\HttpCache;
+use PCF\Addendum\Http\RouteMatch;
+use PCF\Addendum\Http\Router;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Server\RequestHandlerInterface;
@@ -21,8 +24,9 @@ class App implements RequestHandlerInterface
         | JSON_HEX_QUOT;
 
     public function __construct(
-        private Router $router,
-        private LoggerInterface $logger
+        protected readonly Router $router,
+        protected readonly LoggerInterface $logger,
+        protected readonly HttpCacheRuntime $httpCacheRuntime
     ) {
     }
 
@@ -55,9 +59,11 @@ class App implements RequestHandlerInterface
                 return $this->withSecurityHeaders($this->jsonResponse(['error' => 'Unsupported media type'], 415));
             }
 
-            $handler = new ActionRequestHandlerFactory($this->logger)->create($match);
+            $handler = $this->routeHandler($match);
+            $policies = $match->resourcePolicies;
+            $response = new HttpCache($policies, $this->httpCacheRuntime)->process($match->request, $handler);
 
-            return $this->withSecurityHeaders($handler->handle($match->request));
+            return $this->withSecurityHeaders($response);
         } catch (\Throwable $e) {
             $this->logger->error('Unhandled exception in application', [
                 'exception' => get_class($e),
@@ -80,6 +86,24 @@ class App implements RequestHandlerInterface
 
             return $this->withSecurityHeaders($response);
         }
+    }
+
+    private function routeHandler(RouteMatch $match): RequestHandlerInterface
+    {
+        return new class($match, $this->logger) implements RequestHandlerInterface {
+            public function __construct(
+                private readonly RouteMatch $match,
+                private readonly LoggerInterface $logger
+            ) {
+            }
+
+            public function handle(ServerRequestInterface $request): ResponseInterface
+            {
+                $handler = new ActionRequestHandlerFactory($this->logger)->create($this->match);
+
+                return $handler->handle($request);
+            }
+        };
     }
 
     /**

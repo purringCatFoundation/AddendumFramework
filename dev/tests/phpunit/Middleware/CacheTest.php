@@ -41,7 +41,7 @@ final class CacheTest extends TestCase
         };
         $generator = new CacheKeyGenerator();
         $middleware = new Cache($generator, params: ['foo'], useSession: true);
-        $request = (new ServerRequest('GET', '/path'))
+        $request = new ServerRequest('GET', '/path')
             ->withQueryParams(['foo' => 'bar'])
             ->withAttribute('token_jti', 'abc');
         $response = $middleware->process($request, $handler);

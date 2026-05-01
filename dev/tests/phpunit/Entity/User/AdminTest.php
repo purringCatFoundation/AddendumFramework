@@ -158,7 +158,7 @@ final class AdminTest extends TestCase
 
     public function testDaysSinceGrantedPropertyHook(): void
     {
-        $pastDate = (new DateTimeImmutable())->modify('-10 days');
+        $pastDate = new DateTimeImmutable()->modify('-10 days');
 
         $row = [
             'id' => 1,
@@ -181,8 +181,8 @@ final class AdminTest extends TestCase
 
     public function testDaysSinceRevokedPropertyHookForRevokedAdmin(): void
     {
-        $grantDate = (new DateTimeImmutable())->modify('-30 days');
-        $revokeDate = (new DateTimeImmutable())->modify('-5 days');
+        $grantDate = new DateTimeImmutable()->modify('-30 days');
+        $revokeDate = new DateTimeImmutable()->modify('-5 days');
 
         $row = [
             'id' => 1,

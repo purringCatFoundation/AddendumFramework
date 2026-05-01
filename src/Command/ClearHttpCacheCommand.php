@@ -9,8 +9,8 @@ use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
 
-#[AsCommand(name: 'reverse-cache:clear', description: 'Clear reverse proxy cache')]
-class ClearReverseProxyCacheCommand extends Command
+#[AsCommand(name: 'http-cache:clear', description: 'Clear HTTP cache')]
+class ClearHttpCacheCommand extends Command
 {
     public function __construct(private string $url)
     {
@@ -26,7 +26,7 @@ class ClearReverseProxyCacheCommand extends Command
             ],
         ]);
         @file_get_contents($this->url, false, $context);
-        $output->writeln('Reverse proxy cache clear request sent.');
+        $output->writeln('HTTP cache clear request sent.');
         return Command::SUCCESS;
     }
 }

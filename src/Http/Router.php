@@ -3,11 +3,14 @@ declare(strict_types=1);
 
 namespace PCF\Addendum\Http;
 
+use PCF\Addendum\Attribute\ResourcePolicy;
 use PCF\Addendum\Attribute\Route;
+use PCF\Addendum\Http\Cache\ResourcePolicyCollection;
 use PCF\Addendum\Http\Routing\ActionScanner;
 use PCF\Addendum\Http\Routing\MiddlewareStackBuilder;
 use PCF\Addendum\Http\Routing\RoutePatternCompiler;
 use Psr\Http\Message\ServerRequestInterface;
+use ReflectionAttribute;
 
 /**
  * Router - Discovers and registers routes from Action classes
@@ -61,13 +64,17 @@ class Router
 
                 $actionClass = $actionReflection->getName();
                 $middlewares = $this->middlewareBuilder->buildStack($actionReflection);
+                $resourcePolicies = ResourcePolicyCollection::fromArray(array_map(
+                    static fn(ReflectionAttribute $attribute): ResourcePolicy => $attribute->newInstance(),
+                    $actionReflection->getAttributes(ResourcePolicy::class)
+                ));
 
                 foreach ($routeAttributes as $routeAttribute) {
                     /** @var Route $route */
                     $route = $routeAttribute->newInstance();
                     $pattern = $this->patternCompiler->compile($route);
 
-                    $registeredRoute = new RegisteredRoute($pattern, $actionClass, $middlewares);
+                    $registeredRoute = new RegisteredRoute($pattern, $actionClass, $middlewares, $resourcePolicies);
                     $this->routes->addRoute($route->method, $registeredRoute);
                 }
             }

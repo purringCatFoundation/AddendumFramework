@@ -11,11 +11,11 @@ class RequestSignatureFactory implements MiddlewareFactoryInterface
 {
     public function create(MiddlewareOptions $options): RequestSignature
     {
-        $jwtConfig = (new JwtConfigFactory())->create();
+        $jwtConfig = new JwtConfigFactory()->create();
 
         return new RequestSignature(
             jwtSecret: $jwtConfig->secret,
-            replayCache: (new RedisCacheFactory())->create()
+            replayCache: new RedisCacheFactory()->create()
         );
     }
 }

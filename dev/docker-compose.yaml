@@ -19,6 +19,7 @@ services:
       POSTGRES_USER: addendum
       POSTGRES_PASSWORD: addendum
       REDIS_URL: tcp://redis:6379
+      HTTP_CACHE_PROVIDER: none
       JWT_SECRET: test-secret-for-addendum-framework-32-bytes
       COMPOSER_CACHE_DIR: /tmp/composer-cache
     volumes:
@@ -49,6 +50,7 @@ services:
       POSTGRES_USER: addendum
       POSTGRES_PASSWORD: addendum
       REDIS_URL: tcp://redis:6379
+      HTTP_CACHE_PROVIDER: none
       JWT_SECRET: test-secret-for-addendum-framework-32-bytes
       COMPOSER_CACHE_DIR: /tmp/composer-cache
     volumes:
@@ -78,6 +80,13 @@ services:
       POSTGRES_USER: addendum
       POSTGRES_PASSWORD: addendum
       REDIS_URL: tcp://redis:6379
+      HTTP_CACHE_PROVIDER: redis
+      HTTP_CACHE_SECRET: dev-http-cache-secret
+      REDIS_HTTP_CACHE_HOST: redis
+      REDIS_HTTP_CACHE_PORT: "6379"
+      REDIS_HTTP_CACHE_DATABASE: "1"
+      REDIS_HTTP_CACHE_KEY_PREFIX: "addendum:dev:http_cache:"
+      REDIS_HTTP_CACHE_HIT_HEADER: X-Redis-Cache
       JWT_SECRET: dev-secret-for-addendum-framework-32-bytes
       LOG_FILE: php://stderr
       COMPOSER_CACHE_DIR: /tmp/composer-cache

@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace PCF\Addendum\Http;
 
 use PCF\Addendum\Http\Routing\ActionScanner;
+use PCF\Addendum\Http\Routing\MiddlewareStackBuilder;
 
 class RouterFactory
 {
@@ -17,6 +18,9 @@ class RouterFactory
 
     public function create(): Router
     {
-        return new Router($this->scanners);
+        return new Router(
+            $this->scanners,
+            new MiddlewareStackBuilder()
+        );
     }
 }

@@ -18,7 +18,7 @@ final class GetUserActionTest extends TestCase
             ->with('userUuid')
             ->willReturn('route-user-uuid');
 
-        $response = (new GetUserAction())($request);
+        $response = new GetUserAction()($request);
 
         $this->assertInstanceOf(ProfileResponse::class, $response);
         $this->assertSame(['uuid' => 'route-user-uuid'], $response->jsonSerialize());
@@ -34,7 +34,7 @@ final class GetUserActionTest extends TestCase
                 ['user_uuid', null, 'authenticated-user-uuid'],
             ]);
 
-        $response = (new GetUserAction())($request);
+        $response = new GetUserAction()($request);
 
         $this->assertSame(['uuid' => 'authenticated-user-uuid'], $response->jsonSerialize());
     }

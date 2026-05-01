@@ -1,0 +1,30 @@
+{
+    auto_https off
+
+    # Requires Caddy built with Souin/cache-handler support.
+    # Example: xcaddy build --with github.com/darkweak/souin/plugins/caddy
+    order cache before reverse_proxy
+
+    cache {
+        ttl 60s
+        stale 30s
+        allowed_http_verbs GET HEAD OPTIONS
+        default_cache_control public, max-age=60
+        api {
+            souin
+        }
+    }
+}
+
+:80 {
+    cache
+
+    reverse_proxy frankenphp:80 {
+        header_up Host {host}
+        header_up X-Forwarded-Proto {scheme}
+    }
+
+    header {
+        X-Caddy-Cache-Example "souin"
+    }
+}

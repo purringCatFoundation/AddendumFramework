@@ -23,7 +23,7 @@ class ValidateRequestMiddlewareProvider implements MiddlewareProviderInterface
         return [
             new RouteMiddleware(
                 ValidateRequestAttribute::class,
-                (new MiddlewareOptions())->withActionClass($actionClass->getName())
+                new MiddlewareOptions()->withActionClass($actionClass->getName())
             )
         ];
     }

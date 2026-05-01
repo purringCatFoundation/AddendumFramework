@@ -25,7 +25,7 @@ final class CacheInvalidationTest extends TestCase
         };
         $generator = new CacheKeyGenerator();
         $middleware = new CacheInvalidation($generator, params: ['foo']);
-        $request = (new ServerRequest('POST', '/path'))
+        $request = new ServerRequest('POST', '/path')
             ->withQueryParams(['foo' => 'bar'])
             ->withAttribute('token_jti', 'abc');
         $response = $middleware->process($request, $handler);

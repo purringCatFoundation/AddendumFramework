@@ -12,9 +12,9 @@ class DeleteAdminTokensActionFactory implements ActionFactoryInterface
     public function create(): DeleteAdminTokensAction
     {
         return new DeleteAdminTokensAction(
-            (new TokenValidationRepositoryFactory(
+            new TokenValidationRepositoryFactory(
                 new DbConnectionFactory()
-            ))->create()
+            )->create()
         );
     }
 }

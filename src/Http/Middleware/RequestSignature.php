@@ -14,17 +14,17 @@ use Psr\SimpleCache\CacheInterface;
 /**
  * Request Signature Verification Middleware
  *
- * Verifies request integrity using HMAC-SHA256 signature for ALL endpoints.
+ * Verifies request integrity using HMAC-SHA256 signatures for routes that enable it.
  * Uses device fingerprint binding to prevent token theft.
  *
- * Required headers for ALL requests:
+ * Required headers for signed requests:
  * - X-Request-Timestamp: <unix_timestamp>
  * - X-Request-Fingerprint: <device_fingerprint>
  * - X-Request-Signature: <hmac_signature>
  * - X-Request-Nonce: <unique_request_nonce> when replay cache is configured
  *
  * Signature calculation:
- * - Public endpoints: HMAC-SHA256(fingerprint, timestamp + fingerprint + method + path + body)
+ * - Public endpoints using this middleware: HMAC-SHA256(fingerprint, timestamp + fingerprint + method + path + body)
  * - Authenticated: HMAC-SHA256(HMAC(JWT_SECRET, jti + fingerprintHash), timestamp + fingerprint + method + path + body)
  *
  * Protection against:
