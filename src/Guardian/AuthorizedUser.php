@@ -20,12 +20,12 @@ use Psr\Http\Message\ServerRequestInterface;
  * Usage:
  * ```php
  * #[Route(path: '/profile', method: 'GET')]
- * #[AccessControl(AuthorizedUser::class)]
+ * #[AccessControl(new ClassAccessControlGuardianDefinition(AuthorizedUser::class))]
  * class GetUserAction { }
  * ```
  *
  * Note: This guardian ALWAYS passes if a session exists.
- * For ownership checks, use specific guardians like CharacterOwnerGuardian.
+ * For ownership checks, use a resource-specific guardian.
  */
 class AuthorizedUser implements AccessControlGuardianInterface
 {

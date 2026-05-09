@@ -10,7 +10,7 @@ class DeleteSessionActionFactory implements ActionFactoryInterface
 {
     public function create(): DeleteSessionAction
     {
-        $authService = new AuthServiceFactory()->create();
+        $authService = AuthServiceFactory::fromEnvironment()->create();
 
         return new DeleteSessionAction($authService);
     }

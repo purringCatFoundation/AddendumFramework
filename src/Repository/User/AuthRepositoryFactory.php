@@ -10,9 +10,8 @@ class AuthRepositoryFactory
 {
     private static ?AuthRepositoryInterface $repo = null;
 
-    public function __construct(private ?DbConnectionFactory $dbConnectionFactory = null)
+    public function __construct(private DbConnectionFactory $dbConnectionFactory)
     {
-        $this->dbConnectionFactory ??= new DbConnectionFactory();
     }
 
     public function create(): AuthRepositoryInterface

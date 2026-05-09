@@ -1,18 +1,19 @@
 # HTTP Cache
 
-Addendum HTTP cache is configured by environment variables and described on endpoints with `#[ResourcePolicy]`. The backend is selected at runtime; endpoint code only declares whether a resource is public, guest-aware, user-aware or private.
+Addendum HTTP cache may be enabled and configured by .ENV variables and described on endpoints with `#[ResourcePolicy]`.
+There are several backend cache to be selected; endpoints may declare resource caching level as public, guest-aware, user-aware or private.
 
-## Enable A Backend
+## Choose the Backend
 
-HTTP cache is disabled by default:
+The external HTTP cache backend is disabled by default, but may be set as `none`
 
 ```env
 HTTP_CACHE_PROVIDER=none
 ```
 
-Missing `HTTP_CACHE_PROVIDER`, an empty value, or `none` disables the system. Disabled cache means no middleware is added, `#[ResourcePolicy]` is ignored and Redis is not initialized.
+The application may still parse the action Resource Polices and emit `Cache-Control` headers, but no response will be stored, and no proxy-specific headers will be emitted for the HTTP response.
 
-Supported providers:
+### Supported providers:
 
 | Value | Backend |
 |-------|---------|
@@ -22,7 +23,7 @@ Supported providers:
 | `caddy` | Emits Caddy or Souin cache tag headers. |
 | `cloudflare` | Emits Cloudflare CDN cache headers. |
 
-Shared context settings:
+Shared context settings with defaults:
 
 ```env
 HTTP_CACHE_SECRET=change-me
@@ -38,7 +39,7 @@ HTTP_CACHE_DEBUG_PROVIDER_HEADER=X-Http-Cache-Provider
 
 ## Redis Backend
 
-Redis is the only built-in backend that stores responses locally.
+Redis is the only built-in backend that stores responses locally by the application, and may reach the PHP process.
 
 ```env
 HTTP_CACHE_PROVIDER=redis
@@ -49,17 +50,6 @@ REDIS_HTTP_CACHE_PASSWORD=
 REDIS_HTTP_CACHE_DATABASE=1
 REDIS_HTTP_CACHE_KEY_PREFIX=addendum:http_cache:
 REDIS_HTTP_CACHE_HIT_HEADER=X-Redis-Cache
-```
-
-`REDIS_HTTP_CACHE_URL` has priority over host/port/password/database. When host/port configuration is used, `REDIS_HTTP_CACHE_DATABASE` selects the Redis DB for front page cache.
-
-`REDIS_HTTP_CACHE_HIT_HEADER` is emitted with `HIT` or `MISS` only when debug headers are enabled.
-
-`REDIS_HTTP_CACHE_KEY_PREFIX` is applied to every response and resource index key, for example:
-
-```text
-addendum:http_cache:response:<hash>
-addendum:http_cache:resource:<hash>
 ```
 
 ## Varnish Backend
@@ -114,11 +104,12 @@ Emitted headers include `CDN-Cache-Control`, `Cloudflare-CDN-Cache-Control` and 
 
 ## Resource Policy
 
-Use repeatable `PCF\Addendum\Attribute\ResourcePolicy` on action classes:
+Use atribute `PCF\Addendum\Attribute\ResourcePolicy` on \PCF\Addendum\Action\ActionInterface classes:
 
 ```php
 use PCF\Addendum\Attribute\ResourcePolicy;
 use PCF\Addendum\Http\Cache\HttpCacheMode;
+use PCF\Addendum\Action\ActionInterface;
 
 #[ResourcePolicy(
     mode: HttpCacheMode::PUBLIC,
@@ -126,7 +117,7 @@ use PCF\Addendum\Http\Cache\HttpCacheMode;
     resource: 'article',
     idAttribute: 'articleUuid'
 )]
-final class GetArticleAction
+final class GetArticleAction implements ActionInterface
 {
 }
 ```

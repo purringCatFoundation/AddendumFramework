@@ -9,23 +9,41 @@ use RuntimeException;
 
 class RegisteredRoute
 {
-    /**
-     * @param list<RouteMiddleware> $middlewares
-     */
+    public readonly string $path;
+    public readonly RouteMiddlewareCollection $middlewares;
+
     public function __construct(
         public readonly string $pattern,
         public readonly string $actionClass,
-        public readonly array $middlewares = [],
-        public readonly ResourcePolicyCollection $resourcePolicies
+        iterable $middlewares,
+        public readonly ResourcePolicyCollection $resourcePolicies,
+        ?string $path = null
     ) {
+        $this->middlewares = $middlewares instanceof RouteMiddlewareCollection
+            ? $middlewares
+            : new RouteMiddlewareCollection($middlewares);
+        $this->path = $path ?? self::pathFromPattern($pattern);
+    }
+
+    private static function pathFromPattern(string $pattern): string
+    {
+        if (!str_starts_with($pattern, '#^') || !str_ends_with($pattern, '$#')) {
+            return $pattern;
+        }
+
+        $path = substr($pattern, 2, -2);
+        $path = preg_replace('#\(\?P<([A-Za-z_][A-Za-z0-9_-]*)>[^)]+\)#', ':$1', $path) ?? $path;
+
+        return str_replace('\\/', '/', $path);
     }
 
 
-    public function matches(string $path): ?array
+    public function matches(string $path): ?RouteParameters
     {
         if (preg_match($this->pattern, $path, $matches)) {
-            return $matches;
+            return RouteParameters::fromRegexMatches($matches);
         }
+
         return null;
     }
 
@@ -36,11 +54,10 @@ class RegisteredRoute
             throw new RuntimeException('Route does not match the request path');
         }
 
-        $routeParams = [];
+        $routeParams = $matches;
 
         foreach ($matches as $key => $value) {
-            if (!is_int($key)) {
-                $routeParams[$key] = $value;
+            if (is_string($key)) {
                 $request = $request->withAttribute($key, $value);
             }
         }
@@ -49,14 +66,9 @@ class RegisteredRoute
             ->withAttribute('action_class', $this->actionClass)
             ->withAttribute('route_params', $routeParams);
 
-        $middlewaresWithActionClass = array_map(
-            fn(RouteMiddleware $middleware) => $middleware->withActionClass($this->actionClass),
-            $this->middlewares
-        );
-
         return new RouteMatch(
             $this->actionClass,
-            $middlewaresWithActionClass,
+            $this->middlewares,
             $request,
             $this->resourcePolicies
         );

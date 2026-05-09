@@ -76,7 +76,7 @@ final class AppTest extends TestCase
         $backend = new AppTestHttpCacheBackendProvider();
         $route = new RegisteredRoute('#^/cached$#', AppCachedAction::class, [], $this->cachedPolicies());
         $router = new AppTestRouter($route, []);
-        $app = new App($router, new NullLogger(), new HttpCacheRuntime(new RedisHttpCache(), $backend));
+        $app = new App($router, new NullLogger(), new HttpCacheRuntime($this->redis(), $backend));
 
         $response = $app->handle(new ServerRequest('GET', '/cached'));
 
@@ -93,7 +93,7 @@ final class AppTest extends TestCase
         $backend = new AppTestHttpCacheBackendProvider(new Response(200, [], '{"cached":true}'));
         $route = new RegisteredRoute('#^/cached$#', AppCachedAction::class, [], $this->cachedPolicies());
         $router = new AppTestRouter($route, []);
-        $app = new App($router, new NullLogger(), new HttpCacheRuntime(new RedisHttpCache(), $backend));
+        $app = new App($router, new NullLogger(), new HttpCacheRuntime($this->redis(), $backend));
 
         $response = $app->handle(new ServerRequest('GET', '/cached'));
 
@@ -112,15 +112,17 @@ final class AppTest extends TestCase
 
     private function runtime(): HttpCacheRuntime
     {
-        return new HttpCacheRuntime(new RedisHttpCache(), new AppTestHttpCacheBackendProvider());
+        return new HttpCacheRuntime($this->redis(), new AppTestHttpCacheBackendProvider());
+    }
+
+    private function redis(): RedisHttpCache
+    {
+        return new RedisHttpCache(new HttpCacheContext());
     }
 }
 
 final class AppTestRouter extends Router
 {
-    /**
-     * @param list<string> $allowedMethods
-     */
     public function __construct(
         private readonly ?RegisteredRoute $route,
         private readonly array $allowedMethods
@@ -136,9 +138,9 @@ final class AppTestRouter extends Router
         return $this->route->createMatchResult($request);
     }
 
-    public function getAllowedMethodsForPath(string $path): array
+    public function getAllowedMethodsForPath(string $path): \Ds\Vector
     {
-        return $this->allowedMethods;
+        return new \Ds\Vector($this->allowedMethods);
     }
 }
 

@@ -29,7 +29,7 @@ class Auth implements MiddlewareInterface
      * Authenticate JWT token and add user attributes to request
      *
      * Handles two types of tokens:
-     * 1. User/Character tokens - validated against user token cache
+     * 1. User tokens - validated against user token cache
      * 2. Application tokens - validated against application_tokens table
      *
      * @param ServerRequestInterface $request HTTP request with Authorization header
@@ -58,7 +58,7 @@ class Auth implements MiddlewareInterface
                 // Update last used timestamp
                 $this->applicationTokenRepository->updateLastUsed($payload->jti);
             } else {
-                // Validate user/character token against token cache
+                // Validate user token against token cache
                 if (!$this->tokenValidationRepository->isTokenValid($payload->sub, $payload->iat)) {
                     return $this->createUnauthorizedResponse('Token has been revoked');
                 }

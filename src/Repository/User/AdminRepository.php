@@ -3,7 +3,12 @@ declare(strict_types=1);
 
 namespace PCF\Addendum\Repository\User;
 
+use PCF\Addendum\Entity\User\ActiveAdmin;
+use PCF\Addendum\Entity\User\ActiveAdminCollection;
 use PCF\Addendum\Entity\User\Admin;
+use PCF\Addendum\Entity\User\AdminAuditTrail;
+use PCF\Addendum\Entity\User\AdminAuditTrailEntry;
+use PCF\Addendum\Entity\User\AdminStatistics;
 use PDO;
 
 /**
@@ -122,16 +127,22 @@ final class AdminRepository implements AdminRepositoryInterface
         return Admin::fromDatabaseRow($row);
     }
 
-    public function listActiveAdmins(): array
+    public function listActiveAdmins(): ActiveAdminCollection
     {
         $stmt = $this->db->query(
             'SELECT * FROM list_active_admins()'
         );
 
-        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        $admins = new ActiveAdminCollection();
+
+        foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+            $admins->add(ActiveAdmin::fromDatabaseRow($row));
+        }
+
+        return $admins;
     }
 
-    public function getStatistics(): array
+    public function getStatistics(): AdminStatistics
     {
         $stmt = $this->db->query(
             'SELECT * FROM get_admin_statistics()'
@@ -139,16 +150,10 @@ final class AdminRepository implements AdminRepositoryInterface
 
         $result = $stmt->fetch(PDO::FETCH_ASSOC);
 
-        return [
-            'total_admins' => (int) $result['total_admins'],
-            'active_admins' => (int) $result['active_admins'],
-            'revoked_admins' => (int) $result['revoked_admins'],
-            'admins_granted_last_30d' => (int) $result['admins_granted_last_30d'],
-            'admins_revoked_last_30d' => (int) $result['admins_revoked_last_30d'],
-        ];
+        return AdminStatistics::fromDatabaseRow($result);
     }
 
-    public function getAuditTrail(string $userUuid): array
+    public function getAuditTrail(string $userUuid): AdminAuditTrail
     {
         $stmt = $this->db->prepare(
             'SELECT * FROM get_admin_audit_trail(:user_uuid)'
@@ -156,6 +161,12 @@ final class AdminRepository implements AdminRepositoryInterface
 
         $stmt->execute([':user_uuid' => $userUuid]);
 
-        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        $trail = new AdminAuditTrail();
+
+        foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+            $trail->add(AdminAuditTrailEntry::fromDatabaseRow($row));
+        }
+
+        return $trail;
     }
 }

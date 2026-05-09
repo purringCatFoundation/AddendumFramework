@@ -6,14 +6,15 @@ namespace PCF\Addendum\Http\Routing;
 use PCF\Addendum\Http\Routing\MiddlewareProviderInterface;
 use PCF\Addendum\Attribute\Middleware;
 use PCF\Addendum\Http\MiddlewareOptions;
+use PCF\Addendum\Http\RouteMiddlewareCollection;
 use PCF\Addendum\Http\RouteMiddleware;
 use ReflectionClass;
 
 class CustomMiddlewareProvider implements MiddlewareProviderInterface
 {
-    public function provide(ReflectionClass $actionClass): array
+    public function provide(ReflectionClass $actionClass): RouteMiddlewareCollection
     {
-        $middlewares = [];
+        $middlewares = new RouteMiddlewareCollection();
 
         foreach ($actionClass->getAttributes(Middleware::class) as $middlewareAttribute) {
             $instance = $middlewareAttribute->newInstance();
@@ -32,7 +33,7 @@ class CustomMiddlewareProvider implements MiddlewareProviderInterface
                 $middleware = $middleware->addOptions($instance->options);
             }
 
-            $middlewares[] = $middleware;
+            $middlewares->add($middleware);
         }
 
         return $middlewares;

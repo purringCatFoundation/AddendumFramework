@@ -9,7 +9,6 @@ use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Server\MiddlewareInterface;
 use Psr\Http\Server\RequestHandlerInterface;
-use Psr\SimpleCache\CacheInterface;
 
 /**
  * Request Signature Verification Middleware
@@ -43,7 +42,7 @@ class RequestSignature implements MiddlewareInterface
 
     public function __construct(
         private readonly string $jwtSecret,
-        private readonly ?CacheInterface $replayCache = null
+        private readonly RequestReplayCache $replayCache
     ) {}
 
     public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
@@ -65,7 +64,7 @@ class RequestSignature implements MiddlewareInterface
         if (!ctype_digit($timestamp)) {
             return $this->createErrorResponse('Invalid timestamp format', 400);
         }
-        if ($this->replayCache !== null && empty($nonce)) {
+        if ($this->replayCache->requiresNonce() && empty($nonce)) {
             return $this->createErrorResponse('Missing required header: ' . self::HEADER_NONCE, 400);
         }
         $timestampInt = (int)$timestamp;
@@ -105,7 +104,7 @@ class RequestSignature implements MiddlewareInterface
             }
         }
 
-        if ($this->replayCache !== null) {
+        if ($this->replayCache->requiresNonce()) {
             $replayKey = $this->createReplayCacheKey($request, $timestampInt, $fingerprint, $nonce, $signature);
 
             if ($this->replayCache->has($replayKey)) {

@@ -4,8 +4,11 @@ declare(strict_types=1);
 namespace PCF\Addendum\Tests\Http\Cache;
 
 use PCF\Addendum\Config\SystemEnvironmentProvider;
+use PCF\Addendum\Http\Cache\CaddyHttpCache;
 use PCF\Addendum\Http\Cache\CloudflareHttpCache;
 use PCF\Addendum\Http\Cache\HttpCacheConfigurationFactory;
+use PCF\Addendum\Http\Cache\NginxHttpCache;
+use PCF\Addendum\Http\Cache\NoneHttpCache;
 use PCF\Addendum\Http\Cache\RedisHttpCache;
 use PCF\Addendum\Http\Cache\VarnishHttpCache;
 use PHPUnit\Framework\TestCase;
@@ -13,18 +16,18 @@ use RuntimeException;
 
 final class HttpCacheConfigurationFactoryTest extends TestCase
 {
-    public function testMissingProviderDisablesHttpCache(): void
+    public function testMissingProviderCreatesNoneHttpCache(): void
     {
         $factory = new HttpCacheConfigurationFactory(new HttpCacheTestEnvironmentProvider([]));
 
-        $this->assertNull($factory->create());
+        $this->assertInstanceOf(NoneHttpCache::class, $factory->create());
     }
 
-    public function testNoneProviderDisablesHttpCache(): void
+    public function testNoneProviderCreatesNoneHttpCache(): void
     {
         $factory = new HttpCacheConfigurationFactory(new HttpCacheTestEnvironmentProvider(['HTTP_CACHE_PROVIDER' => 'none']));
 
-        $this->assertNull($factory->create());
+        $this->assertInstanceOf(NoneHttpCache::class, $factory->create());
     }
 
     public function testCreatesRedisConfiguration(): void
@@ -97,6 +100,44 @@ final class HttpCacheConfigurationFactoryTest extends TestCase
 
         $this->assertInstanceOf(CloudflareHttpCache::class, $configuration);
         $this->assertTrue($configuration->purgeByTags);
+    }
+
+    public function testCreatesNginxConfiguration(): void
+    {
+        $factory = new HttpCacheConfigurationFactory(new HttpCacheTestEnvironmentProvider([
+            'HTTP_CACHE_PROVIDER' => 'nginx',
+            'NGINX_HTTP_CACHE_TAG_HEADER' => 'X-Tags',
+            'NGINX_HTTP_CACHE_ACCEL_EXPIRES_HEADER' => 'X-Accel-TTL',
+            'NGINX_HTTP_CACHE_EMIT_ACCEL_EXPIRES' => 'off',
+            'NGINX_HTTP_CACHE_PURGE_URL' => 'http://nginx/purge',
+            'NGINX_HTTP_CACHE_PURGE_METHOD' => 'BAN',
+        ]));
+
+        $configuration = $factory->create();
+
+        $this->assertInstanceOf(NginxHttpCache::class, $configuration);
+        $this->assertSame('X-Tags', $configuration->tagHeader);
+        $this->assertSame('X-Accel-TTL', $configuration->accelExpiresHeader);
+        $this->assertFalse($configuration->emitAccelExpires);
+        $this->assertSame('http://nginx/purge', $configuration->purgeUrl);
+        $this->assertSame('BAN', $configuration->purgeMethod);
+    }
+
+    public function testCreatesCaddyConfiguration(): void
+    {
+        $factory = new HttpCacheConfigurationFactory(new HttpCacheTestEnvironmentProvider([
+            'HTTP_CACHE_PROVIDER' => 'caddy',
+            'CADDY_HTTP_CACHE_HANDLER' => CaddyHttpCache::SOUIN,
+            'CADDY_HTTP_CACHE_TAG_HEADER' => 'X-Tags',
+            'CADDY_HTTP_CACHE_SOUIN_TAG_HEADER' => 'X-Souin-Tags',
+        ]));
+
+        $configuration = $factory->create();
+
+        $this->assertInstanceOf(CaddyHttpCache::class, $configuration);
+        $this->assertSame(CaddyHttpCache::SOUIN, $configuration->cacheHandler);
+        $this->assertSame('X-Tags', $configuration->tagHeader);
+        $this->assertSame('X-Souin-Tags', $configuration->souinTagHeader);
     }
 
     public function testInvalidProviderThrows(): void

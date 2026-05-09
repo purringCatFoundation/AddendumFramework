@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace PCF\Addendum\Attribute;
 
+use Ds\Vector;
 use Iterator;
 
 interface AttributeValueInterface extends Iterator
@@ -10,9 +11,9 @@ interface AttributeValueInterface extends Iterator
     public function getAttributeType(): string;
 
     /**
-     * @return list<mixed>
+     * @return Vector<mixed>
      */
-    public function getValues(): array;
+    public function getValues(): Vector;
 
     public function getFirst(mixed $default = null): mixed;
 }

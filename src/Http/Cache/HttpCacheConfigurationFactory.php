@@ -9,16 +9,16 @@ use RuntimeException;
 final readonly class HttpCacheConfigurationFactory
 {
     public function __construct(
-        private SystemEnvironmentProvider $environmentProvider = new SystemEnvironmentProvider()
+        private SystemEnvironmentProvider $environmentProvider
     ) {
     }
 
-    public function create(): ?HttpCacheConfigurationInterface
+    public function create(): HttpCacheConfigurationInterface
     {
         $provider = strtolower(trim($this->env('HTTP_CACHE_PROVIDER', 'none')));
 
         if ($provider === '' || $provider === 'none') {
-            return null;
+            return new NoneHttpCache($this->context());
         }
 
         return match ($provider) {

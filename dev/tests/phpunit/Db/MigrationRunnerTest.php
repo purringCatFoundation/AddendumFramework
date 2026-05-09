@@ -26,10 +26,10 @@ final class MigrationRunnerTest extends TestCase
         $runner = new MigrationRunner($dbConnectionFactory, $dir, new FinderFactory());
 
         $pending = $runner->pending();
-        $this->assertArrayHasKey('001_test.sql', $pending);
+        $this->assertTrue($pending->hasKey('001_test.sql'));
 
         $executed = $runner->run();
-        $this->assertSame(['001_test.sql'], $executed);
-        $this->assertSame([], $runner->pending());
+        $this->assertSame(['001_test.sql'], $executed->toArray());
+        $this->assertTrue($runner->pending()->isEmpty());
     }
 }

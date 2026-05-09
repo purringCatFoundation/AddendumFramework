@@ -13,6 +13,16 @@ class Pattern extends AbstractRequestValidator
     ) {
     }
 
+    public function pattern(): string
+    {
+        return $this->pattern;
+    }
+
+    public function errorMessage(): ?string
+    {
+        return $this->errorMessage;
+    }
+
     /**
      * Validate value against regex pattern
      *

@@ -4,6 +4,8 @@ declare(strict_types=1);
 namespace PCF\Addendum\Tests\Middleware;
 
 use PCF\Addendum\Http\Middleware\RequestSignature;
+use PCF\Addendum\Http\Middleware\NoneRequestReplayCache;
+use PCF\Addendum\Http\Middleware\RequestReplayCache;
 use GuzzleHttp\Psr7\ServerRequest;
 use GuzzleHttp\Psr7\Response;
 use PHPUnit\Framework\TestCase;
@@ -18,7 +20,7 @@ final class RequestSignatureTest extends TestCase
 
     protected function setUp(): void
     {
-        $this->middleware = new RequestSignature(self::JWT_SECRET);
+        $this->middleware = new RequestSignature(self::JWT_SECRET, new NoneRequestReplayCache());
         $this->handler = $this->createMock(RequestHandlerInterface::class);
     }
 
@@ -292,5 +294,117 @@ final class RequestSignatureTest extends TestCase
         $this->assertArrayHasKey('error', $body);
         $this->assertArrayHasKey('message', $body);
         $this->assertSame('Signature Verification Failed', $body['error']);
+    }
+
+    public function testReplayCacheRequiresNonceHeader(): void
+    {
+        $middleware = new RequestSignature(self::JWT_SECRET, new RequestSignatureReplayCache());
+        $request = (new ServerRequest('GET', '/test'))
+            ->withHeader('X-Request-Timestamp', (string) time())
+            ->withHeader('X-Request-Fingerprint', 'fingerprint')
+            ->withHeader('X-Request-Signature', 'signature');
+
+        $response = $middleware->process($request, $this->handler);
+        $body = json_decode((string) $response->getBody(), true);
+
+        $this->assertSame(400, $response->getStatusCode());
+        $this->assertSame('Missing required header: X-Request-Nonce', $body['message']);
+    }
+
+    public function testReplayCacheRejectsUsedNonce(): void
+    {
+        $timestamp = time();
+        $fingerprint = 'fingerprint';
+        $nonce = 'nonce-1';
+        $signature = $this->publicSignature($timestamp, $fingerprint, 'GET', '/test', $nonce);
+        $middleware = new RequestSignature(self::JWT_SECRET, new RequestSignatureReplayCache(hasReplay: true));
+        $request = (new ServerRequest('GET', '/test'))
+            ->withHeader('X-Request-Timestamp', (string) $timestamp)
+            ->withHeader('X-Request-Fingerprint', $fingerprint)
+            ->withHeader('X-Request-Nonce', $nonce)
+            ->withHeader('X-Request-Signature', $signature);
+
+        $response = $middleware->process($request, $this->handler);
+        $body = json_decode((string) $response->getBody(), true);
+
+        $this->assertSame(409, $response->getStatusCode());
+        $this->assertSame('Request nonce has already been used', $body['message']);
+    }
+
+    public function testReplayCacheStoresNonceWhenSignatureIsValid(): void
+    {
+        $timestamp = time();
+        $fingerprint = 'fingerprint';
+        $nonce = 'nonce-1';
+        $signature = $this->publicSignature($timestamp, $fingerprint, 'GET', '/test', $nonce);
+        $replayCache = new RequestSignatureReplayCache();
+        $middleware = new RequestSignature(self::JWT_SECRET, $replayCache);
+        $request = (new ServerRequest('GET', '/test'))
+            ->withHeader('X-Request-Timestamp', (string) $timestamp)
+            ->withHeader('X-Request-Fingerprint', $fingerprint)
+            ->withHeader('X-Request-Nonce', $nonce)
+            ->withHeader('X-Request-Signature', $signature);
+        $this->handler->expects($this->once())->method('handle')->willReturn(new Response(200));
+
+        $response = $middleware->process($request, $this->handler);
+
+        $this->assertSame(200, $response->getStatusCode());
+        $this->assertStringStartsWith('request_signature_replay:', (string) $replayCache->lastKey);
+        $this->assertSame('1', $replayCache->lastValue);
+        $this->assertSame(300, $replayCache->lastTtl);
+    }
+
+    public function testSignatureIncludesQueryString(): void
+    {
+        $timestamp = time();
+        $fingerprint = 'fingerprint';
+        $nonce = 'nonce-1';
+        $signature = $this->publicSignature($timestamp, $fingerprint, 'GET', '/test?sort=asc', $nonce);
+        $middleware = new RequestSignature(self::JWT_SECRET, new RequestSignatureReplayCache());
+        $request = (new ServerRequest('GET', '/test?sort=asc'))
+            ->withHeader('X-Request-Timestamp', (string) $timestamp)
+            ->withHeader('X-Request-Fingerprint', $fingerprint)
+            ->withHeader('X-Request-Nonce', $nonce)
+            ->withHeader('X-Request-Signature', $signature);
+        $this->handler->expects($this->once())->method('handle')->willReturn(new Response(200));
+
+        $response = $middleware->process($request, $this->handler);
+
+        $this->assertSame(200, $response->getStatusCode());
+    }
+
+    private function publicSignature(int $timestamp, string $fingerprint, string $method, string $target, string $nonce, string $body = ''): string
+    {
+        return hash_hmac('sha256', $timestamp . $fingerprint . $method . $target . $nonce . $body, $fingerprint);
+    }
+}
+
+final class RequestSignatureReplayCache implements RequestReplayCache
+{
+    public ?string $lastKey = null;
+    public ?string $lastValue = null;
+    public ?int $lastTtl = null;
+
+    public function __construct(private readonly bool $hasReplay = false)
+    {
+    }
+
+    public function requiresNonce(): bool
+    {
+        return true;
+    }
+
+    public function has(string $key): bool
+    {
+        $this->lastKey = $key;
+
+        return $this->hasReplay;
+    }
+
+    public function set(string $key, string $value, int $ttl): void
+    {
+        $this->lastKey = $key;
+        $this->lastValue = $value;
+        $this->lastTtl = $ttl;
     }
 }

@@ -3,11 +3,12 @@ declare(strict_types=1);
 
 namespace PCF\Addendum\Command;
 
+use Ds\Vector;
 use PCF\Addendum\Attribute\RateLimit;
 use PCF\Addendum\Attribute\Route;
+use PCF\Addendum\Http\Middleware\ClassAccessControlGuardianDefinition;
 use PCF\Addendum\Http\Router;
 use PCF\Addendum\Attribute\AccessControl as AccessControlAttribute;
-use MakinaCorpus\AccessControl\AccessRole;
 use ReflectionClass;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
@@ -56,7 +57,7 @@ class ListRoutesCommand extends Command
 
         $allRoutes = $this->router->getRoutes()->getAllRoutes();
 
-        if (empty($allRoutes)) {
+        if ($allRoutes->isEmpty()) {
             $output->writeln('<error>No routes registered</error>');
             return Command::FAILURE;
         }
@@ -110,7 +111,7 @@ class ListRoutesCommand extends Command
         string $method,
         string $path,
         string $actionClass,
-        array $middlewares,
+        iterable $middlewares,
         ReflectionClass $reflection,
         bool $detailed
     ): void {
@@ -125,16 +126,10 @@ class ListRoutesCommand extends Command
         $actionShort = $this->getShortClassName($actionClass);
         $output->writeln(sprintf('  <fg=gray>Action:</> %s', $actionShort));
 
-        // Access Roles
-        $accessRoles = $this->getAccessRoles($reflection);
-        if (!empty($accessRoles)) {
-            $output->writeln(sprintf('  <fg=green>Roles:</> %s', implode(', ', $accessRoles)));
-        }
-
         // Access Control Guardians
         $guardians = $this->getAccessControlGuardians($reflection);
-        if (!empty($guardians)) {
-            $output->writeln(sprintf('  <fg=magenta>Guardians:</> %s', implode(', ', $guardians)));
+        if (!$guardians->isEmpty()) {
+            $output->writeln(sprintf('  <fg=magenta>Guardians:</> %s', implode(', ', $guardians->toArray())));
         }
 
         // Rate Limit
@@ -163,56 +158,20 @@ class ListRoutesCommand extends Command
     }
 
     /**
-     * @return list<string>
+     * @return Vector<string>
      */
-    private function getAccessRoles(ReflectionClass $reflection): array
+    private function getAccessControlGuardians(ReflectionClass $reflection): Vector
     {
-        $roles = [];
-        $attributes = $reflection->getAttributes(AccessRole::class);
-
-        foreach ($attributes as $attribute) {
-            /** @var AccessRole $role */
-            $role = $attribute->newInstance();
-            // AccessRole has a single role per attribute (IS_REPEATABLE)
-            $roles[] = $role->getRole();
-        }
-
-        return array_unique($roles);
-    }
-
-    /**
-     * @return list<string>
-     */
-    private function getAccessControlGuardians(ReflectionClass $reflection): array
-    {
-        $guardians = [];
+        $guardians = new Vector();
         $attributes = $reflection->getAttributes(AccessControlAttribute::class);
 
         foreach ($attributes as $attribute) {
-            // Don't instantiate the attribute - just get constructor arguments
-            $args = $attribute->getArguments();
+            $guardian = $attribute->newInstance()->getGuardianDefinition();
 
-            if (empty($args)) {
-                continue;
-            }
-
-            $guardian = $args[0] ?? $args['guardian'] ?? null;
-
-            if ($guardian === null) {
-                continue;
-            }
-
-            if (is_string($guardian)) {
-                $guardians[] = $this->getShortClassName($guardian);
-            } elseif (is_array($guardian)) {
-                // Callable as array [ClassName::class, 'methodName']
-                if (count($guardian) === 2 && is_string($guardian[0]) && is_string($guardian[1])) {
-                    $guardians[] = $this->getShortClassName($guardian[0]) . '::' . $guardian[1];
-                } else {
-                    $guardians[] = '<callable>';
-                }
+            if ($guardian instanceof ClassAccessControlGuardianDefinition) {
+                $guardians->push($this->getShortClassName($guardian->guardianClass));
             } else {
-                $guardians[] = '<callable>';
+                $guardians->push($guardian::class);
             }
         }
 

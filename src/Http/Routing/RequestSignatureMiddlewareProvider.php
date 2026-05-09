@@ -8,6 +8,7 @@ use PCF\Addendum\Attribute\Middleware as MiddlewareAttribute;
 use PCF\Addendum\Http\Middleware\Auth;
 use PCF\Addendum\Http\Middleware\RequestSignature;
 use PCF\Addendum\Http\MiddlewareOptions;
+use PCF\Addendum\Http\RouteMiddlewareCollection;
 use PCF\Addendum\Http\RouteMiddleware;
 use ReflectionClass;
 
@@ -21,18 +22,18 @@ use ReflectionClass;
  */
 class RequestSignatureMiddlewareProvider implements MiddlewareProviderInterface
 {
-    public function provide(ReflectionClass $actionClass): array
+    public function provide(ReflectionClass $actionClass): RouteMiddlewareCollection
     {
         if (!$this->requiresAuth($actionClass)) {
-            return [];
+            return RouteMiddlewareCollection::empty();
         }
 
-        return [
+        return new RouteMiddlewareCollection([
             new RouteMiddleware(
                 RequestSignature::class,
                 new MiddlewareOptions()
             )
-        ];
+        ]);
     }
 
     private function requiresAuth(ReflectionClass $actionClass): bool

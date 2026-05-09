@@ -14,7 +14,7 @@ final class AttributeValueTest extends TestCase
         $value = new AttributeValue(Name::class, ['first', 'second']);
 
         $this->assertSame(Name::class, $value->getAttributeType());
-        $this->assertSame(['first', 'second'], $value->getValues());
+        $this->assertSame(['first', 'second'], $value->getValues()->toArray());
     }
 
     public function testReturnsFirstValue(): void

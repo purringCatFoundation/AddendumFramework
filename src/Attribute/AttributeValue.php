@@ -3,17 +3,23 @@ declare(strict_types=1);
 
 namespace PCF\Addendum\Attribute;
 
+use Ds\Vector;
+
 final class AttributeValue implements AttributeValueInterface
 {
     private int $position = 0;
 
+    /** @var Vector<mixed> */
+    private readonly Vector $values;
+
     /**
-     * @param list<mixed> $values
+     * @param iterable<mixed> $values
      */
     public function __construct(
         private readonly string $attributeType,
-        private readonly array $values
+        iterable $values
     ) {
+        $this->values = $values instanceof Vector ? $values->copy() : new Vector($values);
     }
 
     public function getAttributeType(): string
@@ -21,19 +27,20 @@ final class AttributeValue implements AttributeValueInterface
         return $this->attributeType;
     }
 
-    public function getValues(): array
+    /** @return Vector<mixed> */
+    public function getValues(): Vector
     {
-        return $this->values;
+        return $this->values->copy();
     }
 
     public function getFirst(mixed $default = null): mixed
     {
-        return array_key_exists(0, $this->values) ? $this->values[0] : $default;
+        return $this->values->isEmpty() ? $default : $this->values->first();
     }
 
     public function current(): mixed
     {
-        return $this->values[$this->position] ?? null;
+        return $this->values->get($this->position, null);
     }
 
     public function next(): void
@@ -48,7 +55,7 @@ final class AttributeValue implements AttributeValueInterface
 
     public function valid(): bool
     {
-        return array_key_exists($this->position, $this->values);
+        return $this->position < $this->values->count();
     }
 
     public function rewind(): void

@@ -57,7 +57,7 @@ final class VarnishHttpCacheBackendProvider implements HttpCacheBackendProvider
         if ($policy->sharedMaxAge !== null) {
             $response = $response->withHeader($config->surrogateControlHeader, 'max-age=' . $policy->sharedMaxAge);
         }
-        if ($policy->tags !== []) {
+        if (!$policy->tags->isEmpty()) {
             $response = $response->withHeader($config->tagHeader, HttpCacheHeader::cacheTags($policy->tags, ' '));
         }
 

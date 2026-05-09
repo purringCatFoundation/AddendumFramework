@@ -4,7 +4,11 @@ declare(strict_types=1);
 namespace PCF\Addendum\Tests\Cron;
 
 use PCF\Addendum\Cron\CronService;
+use PCF\Addendum\Cron\CronDefinition;
+use PCF\Addendum\Cron\CronDefinitionCollection;
 use PCF\Addendum\Cron\ScheduleResource;
+use PCF\Addendum\Cron\ScheduledCronJob;
+use PCF\Addendum\Cron\ScheduledCronJobCollection;
 use PCF\Addendum\Util\FinderFactory;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Finder\Finder;
@@ -35,12 +39,14 @@ final class CronServiceTest extends TestCase
         // Mock ScheduleResource
         $resource = $this->createMock(ScheduleResource::class);
         $resource->method('cronExists')->willReturn(true);
-        $resource->method('getCrons')->willReturn([
-            ['code' => 'example', 'expression' => '* * * * *', 'enabled' => true],
-        ]);
+        $resource->method('getCrons')->willReturn(new CronDefinitionCollection([
+            new CronDefinition('example', '* * * * *', true),
+        ]));
 
         $resource->expects($this->once())->method('getScheduled')
-            ->with(null)->willReturn([['id' => 1, 'code' => 'example']]);
+            ->with(null)->willReturn(new ScheduledCronJobCollection([
+                new ScheduledCronJob(1, 'example'),
+            ]));
 
         // When cron class is not found, markFailed should be called
         $resource->expects($this->once())->method('markFailed')->with(1);
@@ -61,7 +67,7 @@ final class CronServiceTest extends TestCase
     {
         $resource = $this->createMock(ScheduleResource::class);
         $resource->method('cronExists')->willReturn(false);
-        $resource->method('getCrons')->willReturn([]);
+        $resource->method('getCrons')->willReturn(new CronDefinitionCollection());
 
         // No crons to schedule, these methods should never be called
         $resource->expects($this->never())->method('isScheduled');
@@ -79,9 +85,9 @@ final class CronServiceTest extends TestCase
 
     public function testListCronsReturnsCronList(): void
     {
-        $expectedCrons = [
-            ['code' => 'example', 'expression' => '* * * * *', 'enabled' => true],
-        ];
+        $expectedCrons = new CronDefinitionCollection([
+            new CronDefinition('example', '* * * * *', true),
+        ]);
 
         $resource = $this->createMock(ScheduleResource::class);
         $resource->method('cronExists')->willReturn(true);

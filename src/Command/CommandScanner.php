@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace PCF\Addendum\Command;
 
+use Ds\Map;
 use ReflectionClass;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
@@ -21,11 +22,11 @@ class CommandScanner
     /**
      * Scan directory for Command classes with #[AsCommand] attribute
      *
-     * @return array<string, array{name: string, description: string, factory: ?string, class: class-string<Command>}> Map of command name => definition
+     * @return Map<string, CommandDefinition>
      */
-    public function scanCommands(): array
+    public function scanCommands(): Map
     {
-        $commands = [];
+        $commands = new Map();
 
         if (!is_dir($this->commandDirectory)) {
             return $commands;
@@ -69,12 +70,12 @@ class CommandScanner
             $factoryClassName = $className . 'Factory';
             $hasFactory = class_exists($factoryClassName);
 
-            $commands[$commandAttr->name] = [
-                'name' => $commandAttr->name,
-                'description' => $commandAttr->description ?? '',
-                'factory' => $hasFactory ? $factoryClassName : null,
-                'class' => $className,
-            ];
+            $commands->put($commandAttr->name, new CommandDefinition(
+                name: $commandAttr->name,
+                description: $commandAttr->description ?? '',
+                class: $className,
+                factory: $hasFactory ? $factoryClassName : null,
+            ));
         }
 
         return $commands;

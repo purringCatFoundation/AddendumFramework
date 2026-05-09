@@ -12,13 +12,13 @@ use Psr\Http\Message\ServerRequestInterface;
  * AdminOnlyGuardian - Restricts access to administrators only
  *
  * This guardian allows access only to ADMIN tokens.
- * All other token types (APPLICATION, USER, CHARACTER) are denied.
+ * All other token types are denied.
  *
  * Usage:
  * ```php
  * #[Route(path: '/admin/users', method: 'GET')]
  * #[Middleware(Auth::class)]
- * #[AccessControl(AdminOnlyGuardian::class)]
+ * #[AccessControl(new ClassAccessControlGuardianDefinition(AdminOnlyGuardian::class))]
  * class ListAllUsersAction { }
  * ```
  */
@@ -26,7 +26,7 @@ class AdminOnlyGuardian implements AccessControlGuardianInterface
 {
     public function authorize(ServerRequestInterface $request, Session $session): bool
     {
-        if ($session->isAdmin) {
+        if ($session->isAdmin()) {
             return true;
         }
 

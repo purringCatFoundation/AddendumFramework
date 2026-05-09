@@ -105,17 +105,15 @@ final class JwtTest extends TestCase
             exp: time() + 3600,
             jti: 'jti-123',
             iat: time(),
-            tokenType: TokenType::CHARACTER,
-            characterUuid: 'char-uuid-456',
+            tokenType: 'workspace_member',
             fingerprintHash: 'fingerprint-hash-789'
         );
 
         $token = Jwt::encode($payload, self::TEST_SECRET);
         $decoded = Jwt::decode($token, self::TEST_SECRET);
 
-        $this->assertSame($payload->characterUuid, $decoded->characterUuid);
         $this->assertSame($payload->fingerprintHash, $decoded->fingerprintHash);
-        $this->assertSame(TokenType::CHARACTER, $decoded->tokenType);
+        $this->assertSame('workspace_member', $decoded->tokenType);
     }
 
     public function testTokenExpirationEdgeCase(): void
@@ -159,14 +157,14 @@ final class JwtTest extends TestCase
             TokenType::ADMIN,
             TokenType::APPLICATION,
             TokenType::USER,
-            TokenType::CHARACTER,
+            'workspace_member',
         ];
 
         foreach ($tokenTypes as $tokenType) {
             $payload = new TokenPayload(
                 sub: 'user-uuid-123',
                 exp: time() + 3600,
-                jti: 'jti-' . $tokenType->value,
+                jti: 'jti-' . $tokenType,
                 iat: time(),
                 tokenType: $tokenType
             );

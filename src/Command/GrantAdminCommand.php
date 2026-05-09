@@ -103,11 +103,11 @@ class GrantAdminCommand extends Command
         $io->table(
             ['Metric', 'Value'],
             [
-                ['Total Admin Records', $stats['total_admins']],
-                ['Active Admins', $stats['active_admins']],
-                ['Revoked Admins', $stats['revoked_admins']],
-                ['Granted Last 30 Days', $stats['admins_granted_last_30d']],
-                ['Revoked Last 30 Days', $stats['admins_revoked_last_30d']],
+                ['Total Admin Records', $stats->totalAdmins],
+                ['Active Admins', $stats->activeAdmins],
+                ['Revoked Admins', $stats->revokedAdmins],
+                ['Granted Last 30 Days', $stats->adminsGrantedLast30Days],
+                ['Revoked Last 30 Days', $stats->adminsRevokedLast30Days],
             ]
         );
 
@@ -118,7 +118,7 @@ class GrantAdminCommand extends Command
     {
         $admins = $this->adminRepository->listActiveAdmins();
 
-        if (empty($admins)) {
+        if ($admins->isEmpty()) {
             $io->info('No active admins found');
             return Command::SUCCESS;
         }
@@ -128,11 +128,11 @@ class GrantAdminCommand extends Command
         $rows = [];
         foreach ($admins as $admin) {
             $rows[] = [
-                $admin['admin_uuid'],
-                $admin['user_email'],
-                $admin['granted_at'],
-                $admin['granted_by_email'] ?? 'CLI',
-                $admin['granted_reason'] ?? '-',
+                $admin->adminUuid,
+                $admin->userEmail,
+                $admin->grantedAt->format('Y-m-d H:i:s'),
+                $admin->grantedByEmail ?? 'CLI',
+                $admin->grantedReason ?? '-',
             ];
         }
 

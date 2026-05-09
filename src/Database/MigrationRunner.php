@@ -3,6 +3,8 @@ declare(strict_types=1);
 
 namespace PCF\Addendum\Database;
 
+use Ds\Map;
+use Ds\Vector;
 use PCF\Addendum\Util\FinderFactory;
 use PDO;
 use Symfony\Component\Finder\Finder;
@@ -11,16 +13,20 @@ class MigrationRunner
 {
     private ?PDO $pdo = null;
 
+    /** @var Vector<string> */
+    private Vector $paths;
+
     /**
      * @param DbConnectionFactory $dbConnectionFactory
-     * @param string|array<string> $paths Single path or array of paths to migration directories
+     * @param string|iterable<string> $paths Single path or paths to migration directories
      * @param FinderFactory $finderFactory
      */
     public function __construct(
         private DbConnectionFactory $dbConnectionFactory,
-        private string|array $paths,
+        string|iterable $paths,
         private FinderFactory $finderFactory
     ) {
+        $this->paths = is_string($paths) ? new Vector([$paths]) : new Vector($paths);
     }
 
     private function getPdo(): PDO
@@ -31,34 +37,39 @@ class MigrationRunner
         return $this->pdo;
     }
 
-    /**
-     * @return array<string, string> [migration name => SQL]
-     */
-    public function pending(): array
+    /** @return Map<string, string> [migration name => SQL] */
+    public function pending(): Map
     {
         $pdo = $this->getPdo();
         $pdo->exec('CREATE TABLE IF NOT EXISTS migrations (name TEXT PRIMARY KEY)');
         $stmt = $pdo->query('SELECT name FROM migrations');
-        $applied = $stmt->fetchAll(PDO::FETCH_COLUMN) ?: [];
-        $applied = array_flip($applied);
+        $applied = new Map();
 
-        $paths = is_array($this->paths) ? $this->paths : [$this->paths];
-        $validPaths = array_filter($paths, fn($p) => is_dir($p));
+        foreach ($stmt->fetchAll(PDO::FETCH_COLUMN) ?: [] as $name) {
+            $applied->put($name, true);
+        }
 
-        if (empty($validPaths)) {
-            return [];
+        $validPaths = new Vector();
+        foreach ($this->paths as $path) {
+            if (is_dir($path)) {
+                $validPaths->push($path);
+            }
+        }
+
+        if ($validPaths->isEmpty()) {
+            return new Map();
         }
 
         $finder = $this->finderFactory->create();
-        $finder->files()->name('*.sql')->in($validPaths)->sortByName();
+        $finder->files()->name('*.sql')->in($validPaths->toArray())->sortByName();
 
-        $pending = [];
+        $pending = new Map();
         foreach ($finder as $file) {
             $name = $file->getFilename();
-            if (isset($applied[$name])) {
+            if ($applied->hasKey($name)) {
                 continue;
             }
-            $pending[$name] = $file->getContents();
+            $pending->put($name, $file->getContents());
         }
 
         return $pending;
@@ -66,11 +77,11 @@ class MigrationRunner
 
     /**
      * @param callable|null $onBeforeMigration Callback called before each migration with migration name
-     * @return string[] executed migration names
+     * @return Vector<string> executed migration names
      */
-    public function run(?callable $onBeforeMigration = null): array
+    public function run(?callable $onBeforeMigration = null): Vector
     {
-        $executed = [];
+        $executed = new Vector();
         $pdo = $this->getPdo();
         foreach ($this->pending() as $name => $sql) {
             if ($onBeforeMigration !== null) {
@@ -79,9 +90,8 @@ class MigrationRunner
             $pdo->exec($sql);
             $ins = $pdo->prepare('INSERT INTO migrations (name) VALUES (:name)');
             $ins->execute(['name' => $name]);
-            $executed[] = $name;
+            $executed->push($name);
         }
         return $executed;
     }
 }
-

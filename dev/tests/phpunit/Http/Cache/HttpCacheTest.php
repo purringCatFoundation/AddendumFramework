@@ -15,6 +15,7 @@ use PCF\Addendum\Http\Cache\HttpCacheBackendProvider;
 use PCF\Addendum\Http\Cache\HttpCacheConfigurationInterface;
 use PCF\Addendum\Http\Cache\HttpCacheContext;
 use PCF\Addendum\Http\Cache\HttpCacheHeader;
+use PCF\Addendum\Http\Cache\HttpCacheKeyGenerator;
 use PCF\Addendum\Http\Cache\HttpCacheMode;
 use PCF\Addendum\Http\Cache\HttpCachePolicy;
 use PCF\Addendum\Http\Cache\HttpCacheRequestContext;
@@ -37,7 +38,7 @@ final class HttpCacheTest extends TestCase
     {
         $middleware = new HttpCache(
             $this->policies(new ResourcePolicy(mode: HttpCacheMode::PUBLIC, maxAge: 60, resource: 'article', idAttribute: 'articleUuid')),
-            new HttpCacheRuntime(new VarnishHttpCache(), new VarnishHttpCacheBackendProvider())
+            new HttpCacheRuntime($this->varnish(), new VarnishHttpCacheBackendProvider())
         );
 
         $response = $middleware->process(
@@ -55,7 +56,7 @@ final class HttpCacheTest extends TestCase
     {
         $middleware = new HttpCache(
             $this->policies(new ResourcePolicy(mode: HttpCacheMode::GUEST_AWARE, maxAge: 120, resource: 'feed')),
-            new HttpCacheRuntime(new RedisHttpCache(), new HttpCacheArrayBackendProvider())
+            new HttpCacheRuntime($this->redis(), new HttpCacheArrayBackendProvider())
         );
 
         $response = $middleware->process(
@@ -72,7 +73,7 @@ final class HttpCacheTest extends TestCase
     {
         $middleware = new HttpCache(
             $this->policies(new ResourcePolicy(mode: HttpCacheMode::USER_AWARE, maxAge: 120, resource: 'profile')),
-            new HttpCacheRuntime(new CloudflareHttpCache(), new CloudflareHttpCacheBackendProvider())
+            new HttpCacheRuntime($this->cloudflare(), new CloudflareHttpCacheBackendProvider())
         );
 
         $request = new ServerRequest('GET', '/profile')->withAttribute('user_uuid', 'user-1');
@@ -114,7 +115,7 @@ final class HttpCacheTest extends TestCase
     {
         $middleware = new HttpCache(
             $this->policies(new ResourcePolicy(mode: HttpCacheMode::PUBLIC, maxAge: 120, resource: 'missing')),
-            new HttpCacheRuntime(new RedisHttpCache(), new HttpCacheArrayBackendProvider())
+            new HttpCacheRuntime($this->redis(), new HttpCacheArrayBackendProvider())
         );
 
         $response = $middleware->process(new ServerRequest('GET', '/missing'), new HttpCacheFixtureHandler(new PsrResponse(404)));
@@ -127,7 +128,7 @@ final class HttpCacheTest extends TestCase
         $backend = new HttpCacheArrayBackendProvider();
         $middleware = new HttpCache(
             $this->policies(new ResourcePolicy(mode: HttpCacheMode::PUBLIC, maxAge: 120, resource: 'article', idAttribute: 'articleUuid')),
-            new HttpCacheRuntime(new RedisHttpCache(), $backend)
+            new HttpCacheRuntime($this->redis(), $backend)
         );
         $handler = new HttpCacheCountingHandler(new PsrResponse(200, [], 'fresh'));
         $request = new ServerRequest('GET', '/articles/1')->withAttribute('articleUuid', '1');
@@ -145,7 +146,7 @@ final class HttpCacheTest extends TestCase
     {
         $middleware = new HttpCache(
             $this->policies(new ResourcePolicy(mode: HttpCacheMode::PUBLIC, maxAge: 60, resource: 'articles')),
-            new HttpCacheRuntime(new RedisHttpCache(), new HttpCacheArrayBackendProvider())
+            new HttpCacheRuntime($this->redis(), new HttpCacheArrayBackendProvider())
         );
         $handler = new HttpCacheCountingHandler(new PsrResponse(204, ['Allow' => 'GET, OPTIONS']));
         $request = new ServerRequest('OPTIONS', '/articles');
@@ -164,7 +165,10 @@ final class HttpCacheTest extends TestCase
             $this->policies(new ResourcePolicy(mode: HttpCacheMode::PUBLIC, maxAge: 60, resource: 'article', idAttribute: 'articleUuid')),
             new HttpCacheRuntime(
                 $configuration,
-                new RedisHttpCacheBackendProvider(new HttpResponseCache(new HttpCacheArrayCache(), $configuration->keyPrefix))
+                new RedisHttpCacheBackendProvider(
+                    new HttpResponseCache(new HttpCacheArrayCache(), $configuration->keyPrefix),
+                    new HttpCacheKeyGenerator()
+                )
             )
         );
         $handler = new HttpCacheCountingHandler(new PsrResponse(200, [], 'fresh'));
@@ -183,12 +187,15 @@ final class HttpCacheTest extends TestCase
 
     public function testRedisProviderOmitsDebugHeadersByDefault(): void
     {
-        $configuration = new RedisHttpCache();
+        $configuration = $this->redis();
         $middleware = new HttpCache(
             $this->policies(new ResourcePolicy(mode: HttpCacheMode::PUBLIC, maxAge: 60, resource: 'article', idAttribute: 'articleUuid')),
             new HttpCacheRuntime(
                 $configuration,
-                new RedisHttpCacheBackendProvider(new HttpResponseCache(new HttpCacheArrayCache(), $configuration->keyPrefix))
+                new RedisHttpCacheBackendProvider(
+                    new HttpResponseCache(new HttpCacheArrayCache(), $configuration->keyPrefix),
+                    new HttpCacheKeyGenerator()
+                )
             )
         );
         $request = new ServerRequest('GET', '/articles/1')->withAttribute('articleUuid', '1');
@@ -203,8 +210,8 @@ final class HttpCacheTest extends TestCase
     {
         $backend = new HttpCacheArrayBackendProvider();
         $policies = $this->policies(new ResourcePolicy(mode: HttpCacheMode::PUBLIC, maxAge: 120, resource: 'article', idAttribute: 'articleUuid'));
-        $cacheMiddleware = new HttpCache($policies, new HttpCacheRuntime(new RedisHttpCache(), $backend));
-        $invalidateMiddleware = new HttpCache($policies, new HttpCacheRuntime(new RedisHttpCache(), $backend));
+        $cacheMiddleware = new HttpCache($policies, new HttpCacheRuntime($this->redis(), $backend));
+        $invalidateMiddleware = new HttpCache($policies, new HttpCacheRuntime($this->redis(), $backend));
         $getHandler = new HttpCacheCountingHandler(new PsrResponse(200, [], 'fresh'));
         $request = new ServerRequest('GET', '/articles/1')->withAttribute('articleUuid', '1');
 
@@ -226,8 +233,8 @@ final class HttpCacheTest extends TestCase
     {
         $backend = new HttpCacheArrayBackendProvider();
         $policies = $this->policies(new ResourcePolicy(mode: HttpCacheMode::PUBLIC, maxAge: 120, resource: 'article', idAttribute: 'articleUuid'));
-        $cacheMiddleware = new HttpCache($policies, new HttpCacheRuntime(new RedisHttpCache(), $backend));
-        $invalidateMiddleware = new HttpCache($policies, new HttpCacheRuntime(new RedisHttpCache(), $backend));
+        $cacheMiddleware = new HttpCache($policies, new HttpCacheRuntime($this->redis(), $backend));
+        $invalidateMiddleware = new HttpCache($policies, new HttpCacheRuntime($this->redis(), $backend));
         $getHandler = new HttpCacheCountingHandler(new PsrResponse(200, [], 'fresh'));
         $request = new ServerRequest('GET', '/articles/1')->withAttribute('articleUuid', '1');
 
@@ -242,9 +249,91 @@ final class HttpCacheTest extends TestCase
         $this->assertSame(1, $getHandler->calls);
     }
 
+    public function testPrivatePolicySkipsBackendAndRemovesProxyHeaders(): void
+    {
+        $backend = new HttpCacheCountingBackendProvider();
+        $middleware = new HttpCache(
+            $this->policies(new ResourcePolicy(mode: HttpCacheMode::PRIVATE, maxAge: 60, resource: 'account')),
+            new HttpCacheRuntime($this->redis(), $backend)
+        );
+
+        $response = $middleware->process(
+            new ServerRequest('GET', '/account'),
+            new HttpCacheFixtureHandler(new PsrResponse(200, [
+                'Surrogate-Control' => 'max-age=60',
+                'Surrogate-Key' => 'account',
+                'X-Accel-Expires' => '60',
+                'X-Cache-Tags' => 'account',
+                'Souin-Cache-Tags' => 'account',
+                'Cache-Tag' => 'account',
+                'CDN-Cache-Control' => 'public, max-age=60',
+                'Cloudflare-CDN-Cache-Control' => 'public, max-age=60',
+            ]))
+        );
+
+        $this->assertSame(0, $backend->readCalls);
+        $this->assertSame(0, $backend->writeCalls);
+        $this->assertSame('private, no-store', $response->getHeaderLine('Cache-Control'));
+        $this->assertSame('', $response->getHeaderLine('Surrogate-Control'));
+        $this->assertSame('', $response->getHeaderLine('Surrogate-Key'));
+        $this->assertSame('', $response->getHeaderLine('X-Accel-Expires'));
+        $this->assertSame('', $response->getHeaderLine('X-Cache-Tags'));
+        $this->assertSame('', $response->getHeaderLine('Souin-Cache-Tags'));
+        $this->assertSame('', $response->getHeaderLine('Cache-Tag'));
+        $this->assertSame('', $response->getHeaderLine('CDN-Cache-Control'));
+        $this->assertSame('', $response->getHeaderLine('Cloudflare-CDN-Cache-Control'));
+    }
+
+    public function testCacheErrorsTrueAllowsErrorResponsesToBeCached(): void
+    {
+        $backend = new HttpCacheCountingBackendProvider();
+        $middleware = new HttpCache(
+            $this->policies(new ResourcePolicy(mode: HttpCacheMode::PUBLIC, maxAge: 120, resource: 'missing', cacheErrors: true)),
+            new HttpCacheRuntime($this->redis(), $backend)
+        );
+
+        $response = $middleware->process(new ServerRequest('GET', '/missing'), new HttpCacheFixtureHandler(new PsrResponse(404)));
+
+        $this->assertSame(1, $backend->readCalls);
+        $this->assertSame(1, $backend->writeCalls);
+        $this->assertSame(404, $response->getStatusCode());
+        $this->assertSame('public, max-age=120, s-maxage=120', $response->getHeaderLine('Cache-Control'));
+        $this->assertSame('MISS', $response->getHeaderLine('X-Cache-Write'));
+    }
+
+    public function testMutationWithoutResourceNamesDoesNotInvalidate(): void
+    {
+        $backend = new HttpCacheCountingBackendProvider();
+        $middleware = new HttpCache(
+            $this->policies(new ResourcePolicy(mode: HttpCacheMode::PUBLIC, maxAge: 120, resource: 'article', idAttribute: 'articleUuid')),
+            new HttpCacheRuntime($this->redis(), $backend)
+        );
+
+        $response = $middleware->process(new ServerRequest('PATCH', '/articles/1'), new HttpCacheFixtureHandler(new PsrResponse(204)));
+
+        $this->assertSame(0, $backend->invalidateCalls);
+        $this->assertSame('private, no-store', $response->getHeaderLine('Cache-Control'));
+        $this->assertSame('', $response->getHeaderLine('X-Cache-Invalidate'));
+    }
+
     private function policies(ResourcePolicy ...$policies): ResourcePolicyCollection
     {
         return new ResourcePolicyCollection($policies);
+    }
+
+    private function redis(?HttpCacheContext $context = null): RedisHttpCache
+    {
+        return new RedisHttpCache($context ?? new HttpCacheContext());
+    }
+
+    private function varnish(): VarnishHttpCache
+    {
+        return new VarnishHttpCache(new HttpCacheContext());
+    }
+
+    private function cloudflare(?HttpCacheContext $context = null): CloudflareHttpCache
+    {
+        return new CloudflareHttpCache($context ?? new HttpCacheContext());
     }
 }
 
@@ -404,5 +493,56 @@ final class HttpCacheArrayCache implements CacheInterface
     public function has(string $key): bool
     {
         return array_key_exists($key, $this->values);
+    }
+}
+
+final class HttpCacheCountingBackendProvider implements HttpCacheBackendProvider
+{
+    public int $readCalls = 0;
+    public int $writeCalls = 0;
+    public int $invalidateCalls = 0;
+
+    public function supports(HttpCacheConfigurationInterface $configuration): bool
+    {
+        return $configuration instanceof RedisHttpCache;
+    }
+
+    public function context(HttpCacheConfigurationInterface $configuration): HttpCacheContext
+    {
+        return $configuration instanceof RedisHttpCache ? $configuration->context : new HttpCacheContext();
+    }
+
+    public function read(HttpCacheConfigurationInterface $configuration, ResourcePolicyCollection $policies, ServerRequestInterface $request, HttpCacheRequestContext $context): ?ResponseInterface
+    {
+        $this->readCalls++;
+
+        return null;
+    }
+
+    public function write(HttpCacheConfigurationInterface $configuration, ResourcePolicyCollection $policies, ServerRequestInterface $request, HttpCacheRequestContext $context, ResponseInterface $response): ResponseInterface
+    {
+        $this->writeCalls++;
+
+        return $response->withHeader('X-Cache-Write', 'MISS');
+    }
+
+    public function invalidate(
+        HttpCacheConfigurationInterface $configuration,
+        ResourcePolicyCollection $policies,
+        ServerRequestInterface $request,
+        ResponseInterface $response
+    ): ResponseInterface {
+        $this->invalidateCalls++;
+
+        return $response->withHeader('X-Cache-Invalidate', 'called');
+    }
+
+    public function buildHeaders(
+        HttpCacheConfigurationInterface $configuration,
+        HttpCachePolicy $policy,
+        HttpCacheRequestContext $context,
+        ResponseInterface $response
+    ): ResponseInterface {
+        return $response;
     }
 }

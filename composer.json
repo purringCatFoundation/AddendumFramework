@@ -33,7 +33,7 @@
         "predis/predis": "^2.2",
         "dragonmantank/cron-expression": "^3.3",
         "monolog/monolog": "^3.0",
-        "makinacorpus/access-control": "^1.3"
+        "nette/php-generator": "^4.1"
     },
     "autoload": {
         "psr-4": {
@@ -45,6 +45,9 @@
             "PCF\\Addendum\\Tests\\": "dev/tests/phpunit/"
         }
     },
+    "bin": [
+        "bin/addendum"
+    ],
     "minimum-stability": "stable",
     "prefer-stable": true
 }

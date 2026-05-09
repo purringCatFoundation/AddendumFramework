@@ -78,7 +78,7 @@ class RevokeAdminCommand extends Command
     {
         $trail = $this->adminRepository->getAuditTrail($userUuid);
 
-        if (empty($trail)) {
+        if ($trail->isEmpty()) {
             $io->info("No admin history found for $email");
             return Command::SUCCESS;
         }
@@ -88,11 +88,11 @@ class RevokeAdminCommand extends Command
         $rows = [];
         foreach ($trail as $entry) {
             $rows[] = [
-                $entry['admin_uuid'],
-                $entry['action'],
-                $entry['action_at'],
-                $entry['action_by_email'] ?? 'CLI',
-                $entry['reason'] ?? '-',
+                $entry->adminUuid,
+                $entry->action,
+                $entry->actionAt->format('Y-m-d H:i:s'),
+                $entry->actionByEmail ?? 'CLI',
+                $entry->reason ?? '-',
             ];
         }
 

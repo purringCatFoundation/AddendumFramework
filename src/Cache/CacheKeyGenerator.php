@@ -12,9 +12,9 @@ class CacheKeyGenerator
      *
      * @param ServerRequestInterface $request
      * @param bool $useSession When true, token_jti attribute will be included.
-     * @param string[] $params List of query or attribute params to include.
+     * @param iterable<string> $params List of query or attribute params to include.
      */
-    public function generate(ServerRequestInterface $request, bool $useSession, array $params): string
+    public function generate(ServerRequestInterface $request, bool $useSession, iterable $params): string
     {
         $parts = [$request->getUri()->getPath()];
         foreach ($params as $param) {

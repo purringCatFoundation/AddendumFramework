@@ -21,12 +21,6 @@ class RouteMiddleware
         return $this->options;
     }
 
-    public function withActionClass(string $actionClass): self
-    {
-        $this->options = $this->options->withActionClass($actionClass);
-        return $this;
-    }
-
     public function addOption(string $key, mixed $value): self
     {
         $this->options = $this->options->withAdditionalData([$key => $value]);

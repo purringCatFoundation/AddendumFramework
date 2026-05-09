@@ -3,6 +3,9 @@ declare(strict_types=1);
 
 namespace PCF\Addendum\Auth;
 
+use BackedEnum;
+use Psr\Http\Message\ServerRequestInterface;
+
 /**
  * Session class containing authenticated user information using PHP 8.5 features
  *
@@ -11,52 +14,9 @@ namespace PCF\Addendum\Auth;
  */
 final class Session
 {
-    /**
-     * Computed property: Check if session has elevated privileges
-     */
-    public bool $hasElevatedPrivileges {
-        get => $this->tokenType->hasElevatedPrivileges();
-    }
-
-    /**
-     * Computed property: Check if session requires ownership validation
-     */
-    public bool $requiresOwnershipValidation {
-        get => $this->tokenType->requiresOwnershipValidation();
-    }
-
-    /**
-     * Computed property: Check if this is an admin session
-     */
-    public bool $isAdmin {
-        get => $this->tokenType === TokenType::ADMIN;
-    }
-
-    /**
-     * Computed property: Check if this is an application session
-     */
-    public bool $isApplication {
-        get => $this->tokenType === TokenType::APPLICATION;
-    }
-
-    /**
-     * Computed property: Check if this is a user session
-     */
-    public bool $isUser {
-        get => $this->tokenType === TokenType::USER;
-    }
-
-    /**
-     * Computed property: Check if this is a character session
-     */
-    public bool $isCharacter {
-        get => $this->tokenType === TokenType::CHARACTER;
-    }
-
     public function __construct(
         public readonly string $userUuid,
-        public readonly TokenType $tokenType,
-        public readonly ?string $characterUuid = null,
+        public readonly string $tokenType,
         public readonly ?int $tokenIssuedAt = null,
         public readonly ?int $tokenExpiresAt = null,
         public readonly ?string $tokenId = null
@@ -71,7 +31,6 @@ final class Session
         return new self(
             userUuid: $payload->sub,
             tokenType: $payload->getTokenType(),
-            characterUuid: $payload->characterUuid,
             tokenIssuedAt: $payload->iat,
             tokenExpiresAt: $payload->exp,
             tokenId: $payload->jti
@@ -81,7 +40,7 @@ final class Session
     /**
      * Create session from request attributes (set by Auth middleware)
      */
-    public static function fromRequest(\Psr\Http\Message\ServerRequestInterface $request): self
+    public static function fromRequest(ServerRequestInterface $request): self
     {
         $tokenPayload = $request->getAttribute('token_payload');
 
@@ -91,14 +50,17 @@ final class Session
 
         // Fallback: construct from individual attributes
         $tokenType = $request->getAttribute('token_type');
-        if (!$tokenType instanceof TokenType) {
-            $tokenType = TokenType::USER; // Default
+        if ($tokenType instanceof BackedEnum) {
+            $tokenType = (string) $tokenType->value;
+        }
+
+        if (!is_string($tokenType) || trim($tokenType) === '') {
+            $tokenType = TokenType::USER;
         }
 
         return new self(
             userUuid: (string) $request->getAttribute('user_uuid'),
             tokenType: $tokenType,
-            characterUuid: $request->getAttribute('character_uuid'),
             tokenIssuedAt: $request->getAttribute('token_issued_at'),
             tokenExpiresAt: $request->getAttribute('token_expires_at'),
             tokenId: $request->getAttribute('token_id')
@@ -110,15 +72,32 @@ final class Session
      */
     public function canBypassOwnership(): bool
     {
-        return $this->hasElevatedPrivileges;
+        return $this->hasElevatedPrivileges();
     }
 
-    /**
-     * Check if character UUID matches session character
-     */
-    public function isCharacterMatch(string $characterUuid): bool
+    public function hasElevatedPrivileges(): bool
     {
-        return $this->characterUuid === $characterUuid;
+        return TokenType::hasElevatedPrivileges($this->tokenType);
+    }
+
+    public function requiresOwnershipValidation(): bool
+    {
+        return TokenType::requiresOwnershipValidation($this->tokenType);
+    }
+
+    public function isAdmin(): bool
+    {
+        return $this->tokenType === TokenType::ADMIN;
+    }
+
+    public function isApplication(): bool
+    {
+        return $this->tokenType === TokenType::APPLICATION;
+    }
+
+    public function isUser(): bool
+    {
+        return $this->tokenType === TokenType::USER;
     }
 
     /**
@@ -128,16 +107,14 @@ final class Session
     {
         return [
             'userUuid' => $this->userUuid,
-            'tokenType' => $this->tokenType->value,
-            'characterUuid' => $this->characterUuid,
+            'tokenType' => $this->tokenType,
             'tokenIssuedAt' => $this->tokenIssuedAt,
             'tokenExpiresAt' => $this->tokenExpiresAt,
             'tokenId' => $this->tokenId,
-            'hasElevatedPrivileges' => $this->hasElevatedPrivileges,
-            'isAdmin' => $this->isAdmin,
-            'isApplication' => $this->isApplication,
-            'isUser' => $this->isUser,
-            'isCharacter' => $this->isCharacter,
+            'hasElevatedPrivileges' => $this->hasElevatedPrivileges(),
+            'isAdmin' => $this->isAdmin(),
+            'isApplication' => $this->isApplication(),
+            'isUser' => $this->isUser(),
         ];
     }
 }

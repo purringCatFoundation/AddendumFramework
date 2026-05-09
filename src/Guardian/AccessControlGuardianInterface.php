@@ -22,16 +22,12 @@ use Psr\Http\Message\ServerRequestInterface;
  *
  * Built-in guardians:
  * - RequiresAuthGuardian: Simple check that user is authenticated
- * - CharacterOwnerGuardian: Validates character ownership
  * - ObjectOwnerGuardian: Validates object ownership
  * - AdminOnlyGuardian: Only allows admin tokens
  *
  * Usage:
  * ```php
- * #[AccessControl(CharacterOwnerGuardian::class)]
- * class GetCharacterAction { }
- *
- * #[AccessControl(AdminOnlyGuardian::class)]
+ * #[AccessControl(new ClassAccessControlGuardianDefinition(AdminOnlyGuardian::class))]
  * class AdminPanelAction { }
  * ```
  *
@@ -45,7 +41,7 @@ use Psr\Http\Message\ServerRequestInterface;
  *
  *     public function authorize(ServerRequestInterface $request, Session $session): bool
  *     {
- *         if ($session->hasElevatedPrivileges) {
+ *         if ($session->hasElevatedPrivileges()) {
  *             return true;
  *         }
  *

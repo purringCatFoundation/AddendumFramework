@@ -3,42 +3,31 @@ declare(strict_types=1);
 
 namespace PCF\Addendum\Http\Middleware;
 
-use PCF\Addendum\Attribute\AccessControl as AccessControlAttribute;
-use \PCF\Addendum\Guardian\AccessControlGuardianInterface;
 use PCF\Addendum\Auth\Session;
 use PCF\Addendum\Exception\AuthorizationError;
 use PCF\Addendum\Exception\PermissionDenied;
 use GuzzleHttp\Psr7\Response as PsrResponse;
 use GuzzleHttp\Psr7\Utils;
-use Psr\Container\ContainerInterface;
-use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
+use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Server\MiddlewareInterface;
 use Psr\Http\Server\RequestHandlerInterface;
-use ReflectionClass;
 
 /**
  * AccessControl Middleware using PHP 8.5 guardian pattern
  *
- * This middleware processes #[AccessControl] attributes on action classes
- * and executes the specified guardians to validate access.
- *
- * Guardians can be:
- * 1. Classes implementing AccessControlGuardianInterface
- * 2. Callables with signature: fn(ServerRequestInterface, Session): bool
+ * This middleware executes compiled guardian definitions to validate access.
  *
  * The middleware:
  * - Extracts Session from request attributes
- * - Reads AccessControl attributes from action class
- * - Instantiates/calls guardians
+ * - Executes guardian definitions
  * - Handles PermissionDenied (403) and AuthorizationError (401) exceptions
  * - Returns appropriate error responses
  */
 class AccessControl implements MiddlewareInterface
 {
     public function __construct(
-        private readonly ?ContainerInterface $container = null,
-        private readonly ?string $actionClass = null
+        private readonly AccessControlGuardianCollection $compiledGuardians = new AccessControlGuardianCollection()
     ) {
     }
 
@@ -47,18 +36,10 @@ class AccessControl implements MiddlewareInterface
      */
     public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
     {
-        // Get action class from constructor (set by factory) or request attribute
-        $actionClass = $this->actionClass ?? $request->getAttribute('action_class');
-
-        if (!$actionClass) {
-            // No action class set, continue without access control
-            return $handler->handle($request);
-        }
-
         // Get access control attributes
-        $accessControls = $this->getAccessControlAttributes($actionClass);
+        $guardians = $this->getAccessControlGuardians();
 
-        if (empty($accessControls)) {
+        if ($guardians->isEmpty()) {
             // No access control requirements, allow access
             return $handler->handle($request);
         }
@@ -72,8 +53,8 @@ class AccessControl implements MiddlewareInterface
 
         // Execute all guardians (all must pass)
         try {
-            foreach ($accessControls as $accessControl) {
-                $this->executeGuardian($accessControl, $request, $session);
+            foreach ($guardians as $guardian) {
+                $this->executeGuardian($guardian, $request, $session);
             }
         } catch (PermissionDenied | AuthorizationError $e) {
             return $this->createErrorResponse($e);
@@ -89,23 +70,10 @@ class AccessControl implements MiddlewareInterface
     }
 
     /**
-     * Extract AccessControl attributes from action class
-     *
-     * @return AccessControlAttribute[]
      */
-    private function getAccessControlAttributes(string $actionClass): array
+    private function getAccessControlGuardians(): AccessControlGuardianCollection
     {
-        if (!class_exists($actionClass)) {
-            return [];
-        }
-
-        $reflection = new ReflectionClass($actionClass);
-        $attributes = $reflection->getAttributes(AccessControlAttribute::class);
-
-        return array_map(
-            fn($attr) => $attr->newInstance(),
-            $attributes
-        );
+        return $this->compiledGuardians;
     }
 
     /**
@@ -146,63 +114,11 @@ class AccessControl implements MiddlewareInterface
      * @throws AuthorizationError When authorization check fails
      */
     private function executeGuardian(
-        AccessControlAttribute $accessControl,
+        AccessControlGuardianDefinitionInterface $guardian,
         ServerRequestInterface $request,
         Session $session
     ): void {
-        $guardian = $accessControl->getGuardian();
-
-        if ($accessControl->isClass()) {
-            // Guardian is a class - instantiate and call authorize()
-            $guardianInstance = $this->instantiateGuardian($guardian);
-            $guardianInstance->authorize($request, $session);
-        } elseif ($accessControl->isCallable()) {
-            // Guardian is a callable - invoke directly
-            $result = $guardian($request, $session);
-
-            // If callable returns false, deny access
-            if ($result === false) {
-                throw new PermissionDenied('Access denied by guardian');
-            }
-
-            // If callable returns true or throws exception, that's handled
-        } else {
-            throw new AuthorizationError('Invalid guardian type');
-        }
-    }
-
-    /**
-     * Instantiate a guardian class
-     */
-    private function instantiateGuardian(string $guardianClass): AccessControlGuardianInterface
-    {
-        // Try to get from container first (for dependency injection)
-        if ($this->container && $this->container->has($guardianClass)) {
-            $instance = $this->container->get($guardianClass);
-
-            if (!$instance instanceof AccessControlGuardianInterface) {
-                throw new \RuntimeException(
-                    "Guardian '{$guardianClass}' from container does not implement AccessControlGuardianInterface"
-                );
-            }
-
-            return $instance;
-        }
-
-        // Fallback: instantiate directly
-        $reflection = new \ReflectionClass($guardianClass);
-
-        // Check if constructor has no required parameters
-        $constructor = $reflection->getConstructor();
-
-        if ($constructor && $constructor->getNumberOfRequiredParameters() > 0) {
-            throw new \RuntimeException(
-                "Cannot instantiate guardian '{$guardianClass}': constructor requires parameters. " .
-                "Use a factory or configure dependency injection."
-            );
-        }
-
-        return new $guardianClass();
+        $guardian->authorize($request, $session);
     }
 
     /**

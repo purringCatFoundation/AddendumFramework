@@ -4,6 +4,8 @@ declare(strict_types=1);
 namespace PCF\Addendum\Repository\User;
 
 use PCF\Addendum\Entity\User\ApplicationToken;
+use PCF\Addendum\Entity\User\ApplicationTokenCollection;
+use PCF\Addendum\Entity\User\ApplicationTokenStatistics;
 use DateTimeImmutable;
 use PDO;
 
@@ -181,21 +183,16 @@ final class ApplicationTokenRepository
         return (int) $result['count'];
     }
 
-    public function listActiveTokens(): array
+    public function listActiveTokens(): ApplicationTokenCollection
     {
         $stmt = $this->db->query(
             'SELECT * FROM list_active_application_tokens()'
         );
 
-        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-        return array_map(
-            fn(array $row) => ApplicationToken::fromDatabaseRow($row),
-            $rows
-        );
+        return $this->tokensFromRows($stmt->fetchAll(PDO::FETCH_ASSOC));
     }
 
-    public function getTokensByApplication(string $applicationName): array
+    public function getTokensByApplication(string $applicationName): ApplicationTokenCollection
     {
         $stmt = $this->db->prepare(
             'SELECT * FROM application_tokens WHERE application_name = :application_name ORDER BY created_at DESC'
@@ -203,15 +200,10 @@ final class ApplicationTokenRepository
 
         $stmt->execute([':application_name' => $applicationName]);
 
-        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-        return array_map(
-            fn(array $row) => ApplicationToken::fromDatabaseRow($row),
-            $rows
-        );
+        return $this->tokensFromRows($stmt->fetchAll(PDO::FETCH_ASSOC));
     }
 
-    public function getTokensByOwner(string $ownerEmail): array
+    public function getTokensByOwner(string $ownerEmail): ApplicationTokenCollection
     {
         $stmt = $this->db->prepare(
             'SELECT * FROM application_tokens WHERE owner_email = :owner_email ORDER BY created_at DESC'
@@ -219,15 +211,10 @@ final class ApplicationTokenRepository
 
         $stmt->execute([':owner_email' => $ownerEmail]);
 
-        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-        return array_map(
-            fn(array $row) => ApplicationToken::fromDatabaseRow($row),
-            $rows
-        );
+        return $this->tokensFromRows($stmt->fetchAll(PDO::FETCH_ASSOC));
     }
 
-    public function getStatistics(): array
+    public function getStatistics(): ApplicationTokenStatistics
     {
         $stmt = $this->db->query(
             'SELECT * FROM get_application_token_statistics()'
@@ -235,14 +222,17 @@ final class ApplicationTokenRepository
 
         $result = $stmt->fetch(PDO::FETCH_ASSOC);
 
-        return [
-            'total_tokens' => (int) $result['total_tokens'],
-            'active_tokens' => (int) $result['active_tokens'],
-            'revoked_tokens' => (int) $result['revoked_tokens'],
-            'unique_applications' => (int) $result['unique_applications'],
-            'unique_owners' => (int) $result['unique_owners'],
-            'tokens_used_last_24h' => (int) $result['tokens_used_last_24h'],
-            'tokens_used_last_7d' => (int) $result['tokens_used_last_7d'],
-        ];
+        return ApplicationTokenStatistics::fromDatabaseRow($result);
+    }
+
+    private function tokensFromRows(iterable $rows): ApplicationTokenCollection
+    {
+        $tokens = new ApplicationTokenCollection();
+
+        foreach ($rows as $row) {
+            $tokens->add(ApplicationToken::fromDatabaseRow($row));
+        }
+
+        return $tokens;
     }
 }

@@ -24,9 +24,6 @@ class RouteMiddlewareTest extends TestCase
         $this->assertEquals('TestMiddleware', $middleware->getClass());
         $this->assertInstanceOf(MiddlewareOptions::class, $middleware->getOptions());
         
-        $withAction = $middleware->withActionClass('TestAction');
-        $this->assertInstanceOf(RouteMiddleware::class, $withAction);
-        
         $withOption = $middleware->addOption('key', 'value');
         $this->assertInstanceOf(RouteMiddleware::class, $withOption);
         
@@ -40,8 +37,7 @@ class RouteMiddlewareTest extends TestCase
         
         $result = $middleware
             ->addOption('timeout', 30)
-            ->addOptions(['retries' => 3])
-            ->withActionClass('TestAction');
+            ->addOptions(['retries' => 3]);
         
         $this->assertInstanceOf(RouteMiddleware::class, $result);
         $this->assertInstanceOf(RouteMiddleware::class, $result);
@@ -49,7 +45,6 @@ class RouteMiddlewareTest extends TestCase
         
         // Verify the fluent operations worked on the original instance
         $options = $middleware->getOptions();
-        $this->assertEquals('TestAction', $options->actionClass);
         $this->assertEquals(30, $options->get('timeout'));
         $this->assertEquals(3, $options->get('retries'));
     }

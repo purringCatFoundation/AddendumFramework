@@ -58,7 +58,7 @@ final class CloudflareHttpCacheBackendProvider implements HttpCacheBackendProvid
             ->withHeader($config->cdnCacheControlHeader, HttpCacheHeader::cacheControl($policy))
             ->withHeader($config->cloudflareCacheControlHeader, HttpCacheHeader::cacheControl($policy));
 
-        if ($policy->tags !== []) {
+        if (!$policy->tags->isEmpty()) {
             $response = $response->withHeader($config->tagHeader, HttpCacheHeader::cacheTags($policy->tags));
         }
 

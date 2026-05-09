@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace PCF\Addendum\Http\Cache;
 
+use Ds\Vector;
 use Psr\Http\Message\ResponseInterface;
 use Psr\SimpleCache\CacheInterface;
 use Throwable;
@@ -30,10 +31,8 @@ final readonly class HttpResponseCache
         return HttpCachedResponse::fromJson($payload)?->toResponse();
     }
 
-    /**
-     * @param list<string> $resources
-     */
-    public function set(string $key, ResponseInterface $response, int $ttl, array $resources): void
+    /** @param iterable<string> $resources */
+    public function set(string $key, ResponseInterface $response, int $ttl, iterable $resources): void
     {
         try {
             $this->cache->set($key, HttpCachedResponse::fromResponse($response)->toJson(), $ttl);
@@ -42,17 +41,15 @@ final readonly class HttpResponseCache
         }
     }
 
-    /**
-     * @param list<string> $resources
-     */
-    public function invalidate(array $resources): void
+    /** @param iterable<string> $resources */
+    public function invalidate(iterable $resources): void
     {
         try {
             foreach ($resources as $resource) {
                 $indexKey = $this->resourceKey($resource);
                 $keys = $this->resourceCacheKeys($indexKey);
 
-                if ($keys !== []) {
+                if (!$keys->isEmpty()) {
                     $this->cache->deleteMultiple($keys);
                 }
 
@@ -62,43 +59,41 @@ final readonly class HttpResponseCache
         }
     }
 
-    /**
-     * @param list<string> $resources
-     */
-    private function recordResources(string $key, array $resources): void
+    /** @param iterable<string> $resources */
+    private function recordResources(string $key, iterable $resources): void
     {
         foreach ($resources as $resource) {
             $indexKey = $this->resourceKey($resource);
             $keys = $this->resourceCacheKeys($indexKey);
-            $keys[] = $key;
-            $keys = array_values(array_unique($keys));
 
-            $this->cache->set($indexKey, json_encode($keys, JSON_THROW_ON_ERROR));
+            if (!$keys->contains($key)) {
+                $keys->push($key);
+            }
+
+            $this->cache->set($indexKey, json_encode($keys->toArray(), JSON_THROW_ON_ERROR));
         }
     }
 
-    /**
-     * @return list<string>
-     */
-    private function resourceCacheKeys(string $indexKey): array
+    /** @return Vector<string> */
+    private function resourceCacheKeys(string $indexKey): Vector
     {
         $payload = $this->cache->get($indexKey);
 
         if (!is_string($payload)) {
-            return [];
+            return new Vector();
         }
 
         try {
             $keys = json_decode($payload, true, flags: JSON_THROW_ON_ERROR);
         } catch (Throwable) {
-            return [];
+            return new Vector();
         }
 
         if (!is_array($keys)) {
-            return [];
+            return new Vector();
         }
 
-        return array_values(array_filter($keys, is_string(...)));
+        return new Vector(array_values(array_filter($keys, is_string(...))));
     }
 
     private function resourceKey(string $resource): string

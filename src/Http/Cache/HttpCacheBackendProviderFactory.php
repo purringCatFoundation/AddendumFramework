@@ -12,7 +12,11 @@ final readonly class HttpCacheBackendProviderFactory
     public function create(HttpCacheConfigurationInterface $configuration): HttpCacheBackendProvider
     {
         return match (true) {
-            $configuration instanceof RedisHttpCache => new RedisHttpCacheBackendProvider($this->redisCache($configuration)),
+            $configuration instanceof NoneHttpCache => new NoneHttpCacheBackendProvider(),
+            $configuration instanceof RedisHttpCache => new RedisHttpCacheBackendProvider(
+                $this->redisCache($configuration),
+                new HttpCacheKeyGenerator()
+            ),
             $configuration instanceof VarnishHttpCache => new VarnishHttpCacheBackendProvider(),
             $configuration instanceof NginxHttpCache => new NginxHttpCacheBackendProvider(),
             $configuration instanceof CaddyHttpCache => new CaddyHttpCacheBackendProvider(),

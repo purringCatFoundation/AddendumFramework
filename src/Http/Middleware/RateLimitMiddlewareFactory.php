@@ -10,7 +10,10 @@ class RateLimitMiddlewareFactory implements MiddlewareFactoryInterface
 {
     public function create(MiddlewareOptions $options): RateLimitMiddleware
     {
-        return new RateLimitMiddleware($this->createRedisClient());
+        return new RateLimitMiddleware(
+            $this->createRedisClient(),
+            $options->get('rateLimit')
+        );
     }
 
     private function createRedisClient(): RedisClient

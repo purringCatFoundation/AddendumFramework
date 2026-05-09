@@ -3,6 +3,8 @@ declare(strict_types=1);
 
 namespace PCF\Addendum\Http\Cache;
 
+use Ds\Vector;
+
 final class HttpCacheHeader
 {
     public static function cacheControl(HttpCachePolicy $policy): string
@@ -32,28 +34,30 @@ final class HttpCacheHeader
         return implode(', ', $directives);
     }
 
-    /**
-     * @param list<string> $values
-     */
-    public static function headerList(array $values, string $separator = ', '): string
+    /** @param iterable<string> $values */
+    public static function headerList(iterable $values, string $separator = ', '): string
     {
-        $clean = array_values(array_unique(array_filter(
-            array_map(static fn(string $value): string => trim($value), $values),
-            static fn(string $value): bool => $value !== ''
-        )));
+        $clean = new Vector();
 
-        return implode($separator, $clean);
+        foreach ($values as $value) {
+            $value = trim($value);
+
+            if ($value !== '' && !$clean->contains($value)) {
+                $clean->push($value);
+            }
+        }
+
+        return implode($separator, $clean->toArray());
     }
 
-    /**
-     * @param list<string> $tags
-     */
-    public static function cacheTags(array $tags, string $separator = ','): string
+    /** @param iterable<string> $tags */
+    public static function cacheTags(iterable $tags, string $separator = ','): string
     {
-        $clean = array_map(
-            static fn(string $tag): string => preg_replace('/[^A-Za-z0-9_:\-.]/', '-', trim($tag)) ?? '',
-            $tags
-        );
+        $clean = new Vector();
+
+        foreach ($tags as $tag) {
+            $clean->push(preg_replace('/[^A-Za-z0-9_:\-.]/', '-', trim($tag)) ?? '');
+        }
 
         return self::headerList($clean, $separator);
     }

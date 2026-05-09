@@ -8,9 +8,8 @@ use PCF\Addendum\Database\DbConnectionFactory;
 
 class TokenValidationRepositoryFactory implements FactoryInterface
 {
-    public function __construct(private ?DbConnectionFactory $dbConnectionFactory = null)
+    public function __construct(private DbConnectionFactory $dbConnectionFactory)
     {
-        $this->dbConnectionFactory ??= new DbConnectionFactory();
     }
 
     public function create(): TokenValidationRepository

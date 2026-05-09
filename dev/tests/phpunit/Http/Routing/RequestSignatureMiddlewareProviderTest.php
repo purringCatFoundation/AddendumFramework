@@ -8,6 +8,7 @@ use PCF\Addendum\Attribute\AccessControl;
 use PCF\Addendum\Attribute\Middleware;
 use PCF\Addendum\Guardian\RequiresAuthGuardian;
 use PCF\Addendum\Http\Middleware\Auth;
+use PCF\Addendum\Http\Middleware\ClassAccessControlGuardianDefinition;
 use PCF\Addendum\Http\Middleware\RequestSignature;
 use PCF\Addendum\Http\Routing\RequestSignatureMiddlewareProvider;
 use PHPUnit\Framework\TestCase;
@@ -21,7 +22,7 @@ final class RequestSignatureMiddlewareProviderTest extends TestCase
 
         $middlewares = $provider->provide(new ReflectionClass(PublicRequestSignatureFixtureAction::class));
 
-        $this->assertSame([], $middlewares);
+        $this->assertTrue($middlewares->isEmpty());
     }
 
     public function testProvidesRequestSignatureWhenAuthMiddlewareIsDeclared(): void
@@ -50,7 +51,7 @@ final class RequestSignatureMiddlewareProviderTest extends TestCase
 
         $middlewares = $provider->provide(new ReflectionClass(GetHelloAction::class));
 
-        $this->assertSame([], $middlewares);
+        $this->assertTrue($middlewares->isEmpty());
     }
 }
 
@@ -63,7 +64,7 @@ final class AuthRequestSignatureFixtureAction
 {
 }
 
-#[AccessControl(RequiresAuthGuardian::class)]
+#[AccessControl(new ClassAccessControlGuardianDefinition(RequiresAuthGuardian::class))]
 final class AccessControlledRequestSignatureFixtureAction
 {
 }

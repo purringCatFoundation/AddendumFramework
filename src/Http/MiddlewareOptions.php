@@ -3,42 +3,44 @@ declare(strict_types=1);
 
 namespace PCF\Addendum\Http;
 
+use Ds\Map;
+
 class MiddlewareOptions
 {
+    /** @var Map<string, mixed> */
+    public readonly Map $additionalData;
+
     public function __construct(
-        public readonly string $actionClass = '',
-        public readonly array $additionalData = []
+        iterable $additionalData = []
     ) {
+        $this->additionalData = $additionalData instanceof Map
+            ? $additionalData->copy()
+            : new Map($additionalData);
     }
 
     public static function fromArray(array $options): self
     {
-        return new self(
-            $options['actionClass'] ?? '',
-            array_diff_key($options, ['actionClass' => true])
-        );
+        return new self(array_diff_key($options, ['actionClass' => true]));
     }
 
     public function toArray(): array
     {
-        return array_merge(
-            ['actionClass' => $this->actionClass],
-            $this->additionalData
-        );
+        return $this->additionalData->toArray();
     }
 
-    public function withActionClass(string $actionClass): self
+    public function withAdditionalData(iterable $data): self
     {
-        return new self($actionClass, $this->additionalData);
-    }
+        $merged = $this->additionalData->copy();
 
-    public function withAdditionalData(array $data): self
-    {
-        return new self($this->actionClass, array_merge($this->additionalData, $data));
+        foreach ($data as $key => $value) {
+            $merged->put($key, $value);
+        }
+
+        return new self($merged);
     }
 
     public function get(string $key, mixed $default = null): mixed
     {
-        return $this->additionalData[$key] ?? $default;
+        return $this->additionalData->hasKey($key) ? $this->additionalData->get($key) : $default;
     }
 }

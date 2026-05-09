@@ -25,7 +25,7 @@ class ActionRequestHandlerFactory
         $action = new $factoryClass()->create();
         $handler = new ActionRequestHandler($action, $this->logger);
         
-        foreach (array_reverse($match->middlewares) as $middlewareRoute) {
+        foreach ($match->middlewares->reversed() as $middlewareRoute) {
             /** @var MiddlewareFactoryInterface $middlewareFactory */
             $middlewareFactory = $middlewareRoute->getClass() . 'Factory';
             /** @var MiddlewareInterface $middleware */

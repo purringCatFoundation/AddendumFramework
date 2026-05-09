@@ -9,7 +9,7 @@ use DateTimeImmutable;
  * Admin entity
  *
  * Represents admin privileges for a user. When a user has an active admin record:
- * - Their tokens have TokenType::ADMIN
+ * - Their tokens use the framework admin token type
  * - They bypass all ownership checks
  * - They have full access to all resources
  *
@@ -20,27 +20,6 @@ use DateTimeImmutable;
  */
 final class Admin
 {
-    /**
-     * Computed property: Check if admin privileges are active
-     */
-    public bool $isActive {
-        get => $this->revokedAt === null;
-    }
-
-    /**
-     * Computed property: Check if granted via CLI
-     */
-    public bool $isGrantedViaCli {
-        get => $this->grantedByUserUuid === null;
-    }
-
-    /**
-     * Computed property: Check if revoked via CLI
-     */
-    public bool $isRevokedViaCli {
-        get => $this->revokedByUserUuid === null && $this->revokedAt !== null;
-    }
-
     /**
      * Computed property: Days since granted
      */
@@ -172,12 +151,27 @@ final class Admin
         return $this->revokedByUserUuid === $userUuid;
     }
 
+    public function isActive(): bool
+    {
+        return $this->revokedAt === null;
+    }
+
+    public function isGrantedViaCli(): bool
+    {
+        return $this->grantedByUserUuid === null;
+    }
+
+    public function isRevokedViaCli(): bool
+    {
+        return $this->revokedByUserUuid === null && $this->revokedAt !== null;
+    }
+
     /**
      * Get status string
      */
     public function getStatus(): string
     {
-        return $this->isActive ? 'ACTIVE' : 'REVOKED';
+        return $this->isActive() ? 'ACTIVE' : 'REVOKED';
     }
 
     /**
@@ -185,7 +179,7 @@ final class Admin
      */
     public function getGrantSource(): string
     {
-        return $this->isGrantedViaCli ? 'CLI' : 'User';
+        return $this->isGrantedViaCli() ? 'CLI' : 'User';
     }
 
     /**
@@ -197,6 +191,6 @@ final class Admin
             return null;
         }
 
-        return $this->isRevokedViaCli ? 'CLI' : 'User';
+        return $this->isRevokedViaCli() ? 'CLI' : 'User';
     }
 }

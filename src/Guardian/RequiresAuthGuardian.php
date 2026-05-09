@@ -15,7 +15,7 @@ use Psr\Http\Message\ServerRequestInterface;
  * has already validated the session, this guardian always passes.
  *
  * Usage:
- * #[AccessControl(RequiresAuthGuardian::class)]
+ * #[AccessControl(new ClassAccessControlGuardianDefinition(RequiresAuthGuardian::class))]
  * class GetUserAction { }
  *
  * Note: This is useful for documenting that an action requires authentication,

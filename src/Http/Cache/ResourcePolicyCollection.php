@@ -3,17 +3,20 @@ declare(strict_types=1);
 
 namespace PCF\Addendum\Http\Cache;
 
+use Ds\Vector;
 use PCF\Addendum\Attribute\ResourcePolicy;
+use PCF\Addendum\Http\RouteParameters;
 use Psr\Http\Message\ServerRequestInterface;
 
 final readonly class ResourcePolicyCollection
 {
-    /**
-     * @param non-empty-list<ResourcePolicy> $policies
-     */
-    public function __construct(
-        private array $policies
-    ) {
+    /** @var Vector<ResourcePolicy> */
+    private Vector $policies;
+
+    /** @param iterable<ResourcePolicy> $policies */
+    public function __construct(iterable $policies)
+    {
+        $this->policies = $policies instanceof Vector ? $policies->copy() : new Vector($policies);
     }
 
     /**
@@ -30,23 +33,19 @@ final readonly class ResourcePolicyCollection
 
     public function primary(): ResourcePolicy
     {
-        return $this->policies[0];
+        return $this->policies->first();
     }
 
-    /**
-     * @return list<ResourcePolicy>
-     */
-    public function all(): array
+    /** @return Vector<ResourcePolicy> */
+    public function all(): Vector
     {
-        return $this->policies;
+        return $this->policies->copy();
     }
 
-    /**
-     * @return list<string>
-     */
-    public function resourceNames(ServerRequestInterface $request): array
+    /** @return Vector<string> */
+    public function resourceNames(ServerRequestInterface $request): Vector
     {
-        $resources = [];
+        $resources = new Vector();
 
         foreach ($this->policies as $policy) {
             $resource = trim($policy->resource);
@@ -62,12 +61,16 @@ final readonly class ResourcePolicyCollection
                 continue;
             }
 
-            $resources[] = $id !== null && $id !== ''
+            $name = $id !== null && $id !== ''
                 ? $resource . ':' . (string) $id
                 : $resource;
+
+            if (!$resources->contains($name)) {
+                $resources->push($name);
+            }
         }
 
-        return array_values(array_unique($resources));
+        return $resources;
     }
 
     public function toHttpCachePolicy(ServerRequestInterface $request): HttpCachePolicy
@@ -98,9 +101,13 @@ final readonly class ResourcePolicyCollection
             return $value;
         }
 
-        $routeParams = $request->getAttribute('route_params', []);
-        if (is_array($routeParams) && array_key_exists($name, $routeParams)) {
-            return $routeParams[$name];
+        $routeParams = $request->getAttribute('route_params');
+        if ($routeParams instanceof RouteParameters) {
+            $routeValue = $routeParams->get($name);
+
+            if ($routeValue !== null) {
+                return $routeValue;
+            }
         }
 
         $queryParams = $request->getQueryParams();

@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace PCF\Addendum\Http\Routing;
 
+use Ds\Vector;
 use ReflectionClass;
 use Symfony\Component\Finder\Finder;
 
@@ -16,12 +17,12 @@ class ActionScanner
     /**
      * Scans and returns all action classes
      *
-     * @return list<ReflectionClass>
+     * @return Vector<ReflectionClass>
      */
-    public function scanActions(): array
+    public function scanActions(): Vector
     {
         if (!is_dir($this->actionDirectory)) {
-            return [];
+            return new Vector();
         }
 
         $finder = new Finder();
@@ -30,7 +31,7 @@ class ActionScanner
             ->name('*Action.php')
             ->notName('*Factory.php');
 
-        $actions = [];
+        $actions = new Vector();
 
         foreach ($finder as $file) {
             $className = $this->extractClassName($file->getRealPath());
@@ -49,7 +50,7 @@ class ActionScanner
                 continue;
             }
 
-            $actions[] = $reflection;
+            $actions->push($reflection);
         }
 
         return $actions;

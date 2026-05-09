@@ -60,7 +60,7 @@ class CronCommand extends Command
         }
 
         foreach ($this->service->listCrons() as $cron) {
-            $output->writeln(sprintf('%s\t%s\t%s', $cron['code'], $cron['enabled'] ? 'enabled' : 'disabled', $cron['expression']));
+            $output->writeln(sprintf('%s\t%s\t%s', $cron->code, $cron->enabled ? 'enabled' : 'disabled', $cron->expression));
         }
         return Command::SUCCESS;
     }

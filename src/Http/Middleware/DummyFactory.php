@@ -10,6 +10,6 @@ class DummyFactory implements MiddlewareFactoryInterface
 {
     public function create(MiddlewareOptions $options): Dummy
     {
-        return new Dummy($options->toArray());
+        return new Dummy($options->additionalData);
     }
 }

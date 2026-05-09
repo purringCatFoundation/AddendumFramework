@@ -6,18 +6,14 @@ namespace PCF\Addendum\Http\Cache;
 final readonly class HttpCacheRuntimeFactory
 {
     public function __construct(
-        private HttpCacheConfigurationFactory $configurationFactory = new HttpCacheConfigurationFactory(),
-        private HttpCacheBackendProviderFactory $backendProviderFactory = new HttpCacheBackendProviderFactory()
+        private HttpCacheConfigurationFactory $configurationFactory,
+        private HttpCacheBackendProviderFactory $backendProviderFactory
     ) {
     }
 
-    public function create(): ?HttpCacheRuntime
+    public function create(): HttpCacheRuntime
     {
         $configuration = $this->configurationFactory->create();
-
-        if ($configuration === null) {
-            return null;
-        }
 
         return new HttpCacheRuntime(
             configuration: $configuration,

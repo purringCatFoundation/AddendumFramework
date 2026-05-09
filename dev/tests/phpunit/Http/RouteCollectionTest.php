@@ -62,8 +62,8 @@ class RouteCollectionTest extends TestCase
         $collection->addRoute('GET', new RegisteredRoute('#^/test$#', 'GetTestAction', [], $this->resourcePolicies()));
         $collection->addRoute('PATCH', new RegisteredRoute('#^/test$#', 'PatchTestAction', [], $this->resourcePolicies()));
 
-        $this->assertSame(['GET', 'PATCH'], $collection->getAllowedMethodsForPath('/test'));
-        $this->assertSame([], $collection->getAllowedMethodsForPath('/missing'));
+        $this->assertSame(['GET', 'PATCH'], $collection->getAllowedMethodsForPath('/test')->toArray());
+        $this->assertSame([], $collection->getAllowedMethodsForPath('/missing')->toArray());
     }
 
     public function testGetAllRoutes(): void
@@ -77,12 +77,12 @@ class RouteCollectionTest extends TestCase
         
         $allRoutes = $collection->getAllRoutes();
         
-        $this->assertArrayHasKey('GET', $allRoutes);
-        $this->assertArrayHasKey('POST', $allRoutes);
-        $this->assertCount(1, $allRoutes['GET']);
-        $this->assertCount(1, $allRoutes['POST']);
-        $this->assertSame($route1, $allRoutes['GET'][0]);
-        $this->assertSame($route2, $allRoutes['POST'][0]);
+        $this->assertTrue($allRoutes->hasKey('GET'));
+        $this->assertTrue($allRoutes->hasKey('POST'));
+        $this->assertCount(1, $allRoutes->get('GET'));
+        $this->assertCount(1, $allRoutes->get('POST'));
+        $this->assertSame($route1, $allRoutes->get('GET')[0]);
+        $this->assertSame($route2, $allRoutes->get('POST')[0]);
     }
 
     public function testClear(): void

@@ -10,11 +10,6 @@ use PCF\Addendum\Util\FinderFactory;
 
 class MigrateCommandFactory implements FactoryInterface
 {
-    public function __construct(private ?DbConnectionFactory $dbConnectionFactory = null)
-    {
-        $this->dbConnectionFactory ??= new DbConnectionFactory();
-    }
-
     public function create(): MigrateCommand
     {
         // Framework migrations (framework/src/Command -> framework/migrations)
@@ -25,7 +20,7 @@ class MigrateCommandFactory implements FactoryInterface
         $paths = [$frameworkMigrations, $projectMigrations];
 
         $finderFactory = new FinderFactory();
-        $runner = new MigrationRunner($this->dbConnectionFactory, $paths, $finderFactory);
+        $runner = new MigrationRunner(new DbConnectionFactory(), $paths, $finderFactory);
         return new MigrateCommand($runner);
     }
 }

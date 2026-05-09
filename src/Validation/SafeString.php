@@ -36,6 +36,11 @@ class SafeString extends AbstractRequestValidator
         private readonly bool $allowBasicHtml = false
     ) {}
 
+    public function allowBasicHtml(): bool
+    {
+        return $this->allowBasicHtml;
+    }
+
     public function validate(mixed $value): ?string
     {
         if ($value === null) {

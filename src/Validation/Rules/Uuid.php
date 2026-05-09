@@ -11,7 +11,7 @@ use PCF\Addendum\Validation\AbstractRequestValidator;
  * Validates that a value is a valid UUID v4 format.
  *
  * Example usage:
- * #[ValidateRequest('characterUuid', new Uuid())]
+ * #[ValidateRequest('resourceUuid', new Uuid())]
  */
 class Uuid extends AbstractRequestValidator
 {

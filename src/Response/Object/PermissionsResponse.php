@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace PCF\Addendum\Response\Object;
 
+use Ds\Vector;
 use JsonSerializable;
 
 /**
@@ -10,14 +11,18 @@ use JsonSerializable;
  */
 final readonly class PermissionsResponse implements JsonSerializable
 {
-    public function __construct(private array $permissions)
+    /** @var Vector<mixed> */
+    private Vector $permissions;
+
+    public function __construct(iterable $permissions)
     {
+        $this->permissions = $permissions instanceof Vector ? $permissions->copy() : new Vector($permissions);
     }
 
     public function jsonSerialize(): array
     {
         return [
-            'permissions' => $this->permissions
+            'permissions' => $this->permissions->toArray()
         ];
     }
 }

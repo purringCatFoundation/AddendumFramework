@@ -4,7 +4,11 @@ declare(strict_types=1);
 namespace PCF\Addendum\Attribute;
 
 use Attribute;
-use PCF\Addendum\Validation\RequestValidatorInterface;
+use InvalidArgumentException;
+use PCF\Addendum\Validation\RequestFieldSource;
+use PCF\Addendum\Validation\RequestValidationConstraintCollection;
+use PCF\Addendum\Validation\RequestValidationConstraintInterface;
+use PCF\Addendum\Validation\RequestValidationRule;
 
 #[Attribute(Attribute::TARGET_CLASS | Attribute::IS_REPEATABLE)]
 class ValidateRequest
@@ -13,9 +17,8 @@ class ValidateRequest
     public const string SOURCE_QUERY = 'query';
     public const string SOURCE_HEADER = 'header';
 
-    /** @var RequestValidatorInterface[] */
-    public readonly array $validators;
-    public readonly string $source;
+    public readonly RequestValidationConstraintCollection $constraints;
+    public readonly RequestFieldSource $source;
 
     /**
      * Create validation rule for a field
@@ -26,21 +29,31 @@ class ValidateRequest
      */
     public function __construct(
         public readonly string $fieldName,
-        RequestValidatorInterface|string ...$validatorsAndSource,
+        RequestValidationConstraintInterface|RequestFieldSource|string ...$constraintsAndSource,
     ) {
-        // Last parameter can be source string, rest are validators
-        $params = $validatorsAndSource;
+        $params = $constraintsAndSource;
         $lastParam = end($params);
 
-        if (is_string($lastParam) && in_array($lastParam, [self::SOURCE_BODY, self::SOURCE_QUERY, self::SOURCE_HEADER], true)) {
-            // Last param is source - remove it and keep the rest as validators
+        if ($lastParam instanceof RequestFieldSource) {
             $this->source = array_pop($params);
-            $this->validators = array_values($params);
+        } elseif (is_string($lastParam) && in_array($lastParam, [self::SOURCE_BODY, self::SOURCE_QUERY, self::SOURCE_HEADER], true)) {
+            $this->source = RequestFieldSource::fromString(array_pop($params));
         } else {
-            // No source specified, use default
-            $this->source = self::SOURCE_BODY;
-            $this->validators = array_values($params);
+            $this->source = RequestFieldSource::Body;
         }
+
+        foreach ($params as $param) {
+            if (!$param instanceof RequestValidationConstraintInterface) {
+                throw new InvalidArgumentException('ValidateRequest accepts validation constraints followed by an optional source');
+            }
+        }
+
+        $this->constraints = new RequestValidationConstraintCollection(array_values($params));
+    }
+
+    public function toRule(): RequestValidationRule
+    {
+        return new RequestValidationRule($this->fieldName, $this->source, $this->constraints);
     }
 
     /**
@@ -48,6 +61,6 @@ class ValidateRequest
      */
     public function getSource(): string
     {
-        return $this->source;
+        return $this->source->value;
     }
 }

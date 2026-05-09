@@ -3,54 +3,57 @@ declare(strict_types=1);
 
 namespace PCF\Addendum\Auth;
 
+use Ds\Vector;
+
 /**
- * Token type enum for access control system
- * Defines different levels of access:
- * - ADMIN: Full administrative access, bypasses all ownership checks
- * - APPLICATION: System-level access for inter-service communication
- * - USER: Standard user access, subject to ownership validation
- * - CHARACTER: Character-specific access, subject to ownership validation
+ * Framework token type names and policy helpers.
  */
-enum TokenType: string
+final class TokenType
 {
-    case ADMIN = 'admin';
-    case APPLICATION = 'application';
-    case USER = 'user';
-    case USER_REFRESH = 'user_refresh';
-    case CHARACTER = 'character';
-    case CHARACTER_REFRESH = 'character_refresh';
+    public const string ADMIN = 'admin';
+    public const string APPLICATION = 'application';
+    public const string USER = 'user';
+    public const string USER_REFRESH = 'user_refresh';
 
-    /**
-     * Check if this token type has elevated privileges (bypasses ownership checks)
-     */
-    public function hasElevatedPrivileges(): bool
+    private const array ELEVATED_TYPES = [
+        self::ADMIN,
+        self::APPLICATION,
+    ];
+
+    private const array DESCRIPTIONS = [
+        self::ADMIN => 'Administrator with full access',
+        self::APPLICATION => 'Application-level system access',
+        self::USER => 'Standard user with ownership-based access',
+        self::USER_REFRESH => 'Refresh token for standard user access',
+    ];
+
+    private function __construct()
     {
-        return match ($this) {
-            self::ADMIN, self::APPLICATION => true,
-            self::USER, self::USER_REFRESH, self::CHARACTER, self::CHARACTER_REFRESH => false,
-        };
     }
 
-    /**
-     * Check if this token type requires ownership validation
-     */
-    public function requiresOwnershipValidation(): bool
+    public static function hasElevatedPrivileges(string $tokenType): bool
     {
-        return !$this->hasElevatedPrivileges();
+        return in_array($tokenType, self::ELEVATED_TYPES, true);
     }
 
-    /**
-     * Get human-readable description of the token type
-     */
-    public function getDescription(): string
+    public static function requiresOwnershipValidation(string $tokenType): bool
     {
-        return match ($this) {
-            self::ADMIN => 'Administrator with full access',
-            self::APPLICATION => 'Application-level system access',
-            self::USER => 'Standard user with ownership-based access',
-            self::USER_REFRESH => 'Refresh token for standard user access',
-            self::CHARACTER => 'Character-specific access',
-            self::CHARACTER_REFRESH => 'Refresh token for character-specific access',
-        };
+        return !self::hasElevatedPrivileges($tokenType);
+    }
+
+    public static function description(string $tokenType): string
+    {
+        return self::DESCRIPTIONS[$tokenType] ?? sprintf('Application-defined token type "%s"', $tokenType);
+    }
+
+    /** @return Vector<string> */
+    public static function builtInTypes(): Vector
+    {
+        return new Vector([
+            self::ADMIN,
+            self::APPLICATION,
+            self::USER,
+            self::USER_REFRESH,
+        ]);
     }
 }

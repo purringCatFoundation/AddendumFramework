@@ -57,7 +57,7 @@ final class NginxHttpCacheBackendProvider implements HttpCacheBackendProvider
         if ($config->emitAccelExpires && $policy->sharedMaxAge !== null) {
             $response = $response->withHeader($config->accelExpiresHeader, (string) $policy->sharedMaxAge);
         }
-        if ($policy->tags !== []) {
+        if (!$policy->tags->isEmpty()) {
             $response = $response->withHeader($config->tagHeader, HttpCacheHeader::cacheTags($policy->tags));
         }
 

@@ -11,6 +11,11 @@ class MinLength extends AbstractRequestValidator
     {
     }
 
+    public function minLength(): int
+    {
+        return $this->minLength;
+    }
+
     /**
      * Validate minimum string length
      *

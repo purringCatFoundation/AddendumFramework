@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace PCF\Addendum\Http\Middleware;
 
 use BackedEnum;
+use Ds\Vector;
 use PCF\Addendum\Http\Cache\HttpCacheMode;
 use PCF\Addendum\Http\Cache\HttpCachePolicy;
 use PCF\Addendum\Http\Cache\HttpCacheRequestContext;
@@ -85,7 +86,7 @@ final readonly class HttpCache implements MiddlewareInterface
 
         $resources = $this->policies->resourceNames($request);
 
-        if ($resources === []) {
+        if ($resources->isEmpty()) {
             return $response;
         }
 
@@ -154,17 +155,17 @@ final readonly class HttpCache implements MiddlewareInterface
         $vary = $this->responseVary($response);
 
         foreach ($policy->vary as $header) {
-            $vary[] = $header;
+            $vary->push($header);
         }
 
         if ($policy->mode === HttpCacheMode::GUEST_AWARE) {
             $authStateHeader = $this->runtime->backendProvider->context($this->runtime->configuration)->authStateHeader;
-            $vary[] = $authStateHeader;
+            $vary->push($authStateHeader);
             $response = $response->withHeader($authStateHeader, $context->authState);
         }
 
         if ($policy->mode === HttpCacheMode::USER_AWARE) {
-            $vary[] = $this->runtime->backendProvider->context($this->runtime->configuration)->userContextHeader;
+            $vary->push($this->runtime->backendProvider->context($this->runtime->configuration)->userContextHeader);
         }
 
         $varyHeader = HttpCacheHeader::headerList($vary);
@@ -198,16 +199,14 @@ final readonly class HttpCache implements MiddlewareInterface
         return $response;
     }
 
-    /**
-     * @return list<string>
-     */
-    private function responseVary(ResponseInterface $response): array
+    /** @return Vector<string> */
+    private function responseVary(ResponseInterface $response): Vector
     {
-        $vary = [];
+        $vary = new Vector();
 
         foreach ($response->getHeader('Vary') as $line) {
             foreach (explode(',', $line) as $header) {
-                $vary[] = trim($header);
+                $vary->push(trim($header));
             }
         }
 

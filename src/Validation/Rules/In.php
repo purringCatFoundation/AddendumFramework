@@ -3,12 +3,25 @@ declare(strict_types=1);
 
 namespace PCF\Addendum\Validation\Rules;
 
+use Ds\Vector;
 use PCF\Addendum\Validation\AbstractRequestValidator;
 
 class In extends AbstractRequestValidator
 {
-    public function __construct(private readonly array $allowedValues)
+    /** @var Vector<mixed> */
+    private Vector $allowedValues;
+
+    public function __construct(iterable $allowedValues)
     {
+        $this->allowedValues = $allowedValues instanceof Vector
+            ? $allowedValues->copy()
+            : new Vector($allowedValues);
+    }
+
+    /** @return Vector<mixed> */
+    public function allowedValues(): Vector
+    {
+        return $this->allowedValues->copy();
     }
 
     /**
@@ -23,8 +36,8 @@ class In extends AbstractRequestValidator
             return null;
         }
 
-        if (!in_array($value, $this->allowedValues, true)) {
-            $allowedString = implode(', ', $this->allowedValues);
+        if (!in_array($value, $this->allowedValues->toArray(), true)) {
+            $allowedString = implode(', ', $this->allowedValues->toArray());
             return "Field must be one of: {$allowedString}";
         }
 

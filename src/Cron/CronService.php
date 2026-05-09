@@ -24,13 +24,14 @@ class CronService
     {
         $crons = $this->getCronsToSchedule();
         foreach ($this->resource->getScheduled($code) as $item) {
-            $jobCode = $item['code'];
-            if (!isset($crons[$jobCode])) {
-                $this->resource->markFailed($item['id']);
+            $cron = $crons->get($item->code);
+            if ($cron === null) {
+                $this->resource->markFailed($item->id);
                 continue;
             }
-            $this->resource->markStarted($item['id']);
-            $class = $crons[$jobCode]['class'];
+
+            $this->resource->markStarted($item->id);
+            $class = $cron->className;
             try {
                 $factoryClass = $class . 'Factory';
                 if (!class_exists($factoryClass) || !method_exists($factoryClass, 'create')) {
@@ -39,9 +40,9 @@ class CronService
                 /** @var CronInterface $instance */
                 $instance = new $factoryClass()->create();
                 $instance->run();
-                $this->resource->markCompleted($item['id']);
+                $this->resource->markCompleted($item->id);
             } catch (Throwable $e) {
-                $this->resource->markFailed($item['id']);
+                $this->resource->markFailed($item->id);
             }
         }
     }
@@ -53,26 +54,26 @@ class CronService
     {
         $toSchedule = $this->getCronsToSchedule();
         $now = new DateTimeImmutable('now');
-        foreach ($toSchedule as $cronCode => $meta) {
-            if ($code !== null && $cronCode !== $code) {
+        foreach ($toSchedule as $cron) {
+            if ($code !== null && $cron->code !== $code) {
                 continue;
             }
-            if (!$meta['enabled']) {
+            if (!$cron->enabled) {
                 continue;
             }
-            $expression = new CronExpression($meta['expression']);
-            $last = $this->resource->lastScheduledAt($cronCode) ?? $now;
+            $expression = new CronExpression($cron->expression);
+            $last = $this->resource->lastScheduledAt($cron->code) ?? $now;
             $next = $last;
             for ($i = 0; $i < 5; $i++) {
                 $next = $expression->getNextRunDate($next);
-                if (!$this->resource->isScheduled($cronCode, $next)) {
-                    $this->resource->createSchedule($cronCode, $next);
+                if (!$this->resource->isScheduled($cron->code, $next)) {
+                    $this->resource->createSchedule($cron->code, $next);
                 }
             }
         }
     }
 
-    public function listCrons(): array
+    public function listCrons(): CronDefinitionCollection
     {
         $this->getCronsToSchedule();
         return $this->resource->getCrons();
@@ -93,18 +94,15 @@ class CronService
         $this->resource->setExpression($code, $expression);
     }
 
-    /**
-     * @return array<string,array{class:string,expression:string,enabled:bool}>
-     */
-    private function getCronsToSchedule(): array
+    private function getCronsToSchedule(): SchedulableCronCollection
     {
         $finder = $this->finderFactory->create();
         $path = dirname(__DIR__) . '/Cron';
         if (!is_dir($path)) {
-            return [];
+            return new SchedulableCronCollection();
         }
         $finder->files()->in($path)->name('*.php');
-        $classes = [];
+        $classes = new SchedulableCronCollection();
         foreach ($finder as $file) {
             $class = 'CitiesRpg\\ApiBackend\\Cron\\' . $file->getBasename('.php');
             if (!class_exists($class)) {
@@ -120,23 +118,29 @@ class CronService
             }
             /** @var CronAttribute $attr */
             $attr = $attrs[0]->newInstance();
-            $classes[$attr->code] = ['class' => $class, 'expression' => $attr->expression];
+            $classes->add(new SchedulableCron(
+                code: $attr->code,
+                className: $class,
+                expression: $attr->expression,
+                enabled: true,
+            ));
             if (!$this->resource->cronExists($attr->code)) {
                 $this->resource->registerCron($attr->code, $attr->expression);
             }
         }
 
-        $configured = [];
+        $configured = new SchedulableCronCollection();
         foreach ($this->resource->getCrons() as $row) {
-            $code = $row['code'];
-            if (!isset($classes[$code])) {
+            $class = $classes->get($row->code);
+            if ($class === null) {
                 continue;
             }
-            $configured[$code] = [
-                'class' => $classes[$code]['class'],
-                'expression' => $row['expression'],
-                'enabled' => (bool) $row['enabled'],
-            ];
+            $configured->add(new SchedulableCron(
+                code: $row->code,
+                className: $class->className,
+                expression: $row->expression,
+                enabled: $row->enabled,
+            ));
         }
         return $configured;
     }

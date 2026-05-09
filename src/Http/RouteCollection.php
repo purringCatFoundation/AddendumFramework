@@ -3,47 +3,56 @@ declare(strict_types=1);
 
 namespace PCF\Addendum\Http;
 
+use Ds\Map;
+use Ds\Set;
+use Ds\Vector;
 use Psr\Http\Message\ServerRequestInterface;
 
 class RouteCollection
 {
-    /**
-     * @var array<string, list<RegisteredRoute>>
-     */
-    private array $routes = [];
+    /** @var Map<string, RegisteredRouteCollection> */
+    private Map $routes;
+
+    public function __construct()
+    {
+        $this->routes = new Map();
+    }
 
     public function addRoute(string $method, RegisteredRoute $route): void
     {
         $method = strtoupper($method);
-        $this->routes[$method][] = $route;
+
+        if (!$this->routes->hasKey($method)) {
+            $this->routes->put($method, new RegisteredRouteCollection());
+        }
+
+        $this->routes->get($method)->add($route);
     }
 
-    /**
-     * @return list<RegisteredRoute>
-     */
-    public function getRoutesForMethod(string $method): array
+    public function getRoutesForMethod(string $method): RegisteredRouteCollection
     {
         $method = strtoupper($method);
-        return $this->routes[$method] ?? [];
+
+        return $this->routes->hasKey($method)
+            ? $this->routes->get($method)
+            : RegisteredRouteCollection::empty();
     }
 
-    /**
-     * @return list<string>
-     */
-    public function getAllowedMethodsForPath(string $path): array
+    /** @return Vector<string> */
+    public function getAllowedMethodsForPath(string $path): Vector
     {
-        $allowedMethods = [];
+        $allowedMethods = new Set();
 
         foreach ($this->routes as $method => $routes) {
             foreach ($routes as $route) {
                 if ($route->matches($path) !== null) {
-                    $allowedMethods[] = $method;
+                    $allowedMethods->add($method);
                     break;
                 }
             }
         }
 
-        return array_values(array_unique($allowedMethods));
+        return new Vector($allowedMethods);
     }
 
     public function match(ServerRequestInterface $request): ?RouteMatch
@@ -61,13 +70,14 @@ class RouteCollection
     }
 
 
-    public function getAllRoutes(): array
+    /** @return Map<string, RegisteredRouteCollection> */
+    public function getAllRoutes(): Map
     {
-        return $this->routes;
+        return $this->routes->copy();
     }
 
     public function clear(): void
     {
-        $this->routes = [];
+        $this->routes = new Map();
     }
 }

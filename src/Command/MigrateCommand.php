@@ -30,7 +30,7 @@ class MigrateCommand extends Command
     {
         $pending = $this->runner->pending();
 
-        if (empty($pending)) {
+        if ($pending->isEmpty()) {
             $output->writeln('Database is up to date.');
             return Command::SUCCESS;
         }
@@ -45,7 +45,7 @@ class MigrateCommand extends Command
 
         if ($input->getOption('run')) {
             $executed = $this->runner->run();
-            $output->writeln("Applied migrations:\n" . implode("\n", $executed));
+            $output->writeln("Applied migrations:\n" . implode("\n", $executed->toArray()));
         }
 
         return Command::SUCCESS;

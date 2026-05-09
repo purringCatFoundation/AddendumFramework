@@ -51,7 +51,7 @@ final class CaddyHttpCacheBackendProvider implements HttpCacheBackendProvider
     ): ResponseInterface
     {
         $config = $this->configuration($configuration);
-        if ($policy->mode === HttpCacheMode::PRIVATE || $policy->tags === []) {
+        if ($policy->mode === HttpCacheMode::PRIVATE || $policy->tags->isEmpty()) {
             return $response;
         }
 

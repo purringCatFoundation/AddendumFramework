@@ -17,10 +17,8 @@ class ScheduleResource
     /**
      * Fetch scheduled cron jobs. The underlying database function
      * handles duplicate and disabled jobs.
-     *
-     * @return array<int,array{id:int,code:string}>
      */
-    public function getScheduled(?string $code = null): array
+    public function getScheduled(?string $code = null): ScheduledCronJobCollection
     {
         if ($code === null) {
             $stmt = $this->pdo->query('SELECT id, code FROM cron_get_scheduled_jobs()');
@@ -28,7 +26,14 @@ class ScheduleResource
             $stmt = $this->pdo->prepare('SELECT id, code FROM cron_get_scheduled_jobs(:code)');
             $stmt->execute(['code' => $code]);
         }
-        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        $jobs = new ScheduledCronJobCollection();
+
+        foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+            $jobs->add(ScheduledCronJob::fromDatabaseRow($row));
+        }
+
+        return $jobs;
     }
 
     public function markStarted(int $id): void
@@ -109,21 +114,16 @@ class ScheduleResource
         $stmt->execute(['code' => $code, 'expression' => $expression]);
     }
 
-    /**
-     * @return array<int,array{code:string,expression:string,enabled:bool}>
-     */
-    public function getCrons(): array
+    public function getCrons(): CronDefinitionCollection
     {
         $stmt = $this->pdo->query('SELECT code, expression, enabled FROM cron');
-        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
-        return array_map(
-            fn(array $row): array => [
-                'code' => $row['code'],
-                'expression' => $row['expression'],
-                'enabled' => (bool) $row['enabled'],
-            ],
-            $rows
-        );
+        $crons = new CronDefinitionCollection();
+
+        foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+            $crons->add(CronDefinition::fromDatabaseRow($row));
+        }
+
+        return $crons;
     }
 
     public function setExpression(string $code, string $expression): void

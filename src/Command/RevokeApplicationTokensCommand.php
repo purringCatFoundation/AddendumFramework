@@ -104,13 +104,13 @@ class RevokeApplicationTokensCommand extends Command
         $io->table(
             ['Metric', 'Value'],
             [
-                ['Total Tokens', $stats['total_tokens']],
-                ['Active Tokens', $stats['active_tokens']],
-                ['Revoked Tokens', $stats['revoked_tokens']],
-                ['Unique Applications', $stats['unique_applications']],
-                ['Unique Owners', $stats['unique_owners']],
-                ['Used Last 24h', $stats['tokens_used_last_24h']],
-                ['Used Last 7d', $stats['tokens_used_last_7d']],
+                ['Total Tokens', $stats->totalTokens],
+                ['Active Tokens', $stats->activeTokens],
+                ['Revoked Tokens', $stats->revokedTokens],
+                ['Unique Applications', $stats->uniqueApplications],
+                ['Unique Owners', $stats->uniqueOwners],
+                ['Used Last 24h', $stats->tokensUsedLast24Hours],
+                ['Used Last 7d', $stats->tokensUsedLast7Days],
             ]
         );
 
@@ -121,7 +121,7 @@ class RevokeApplicationTokensCommand extends Command
     {
         $tokens = $this->tokenRepository->listActiveTokens();
 
-        if (empty($tokens)) {
+        if ($tokens->isEmpty()) {
             $io->info('No active application tokens found');
             return Command::SUCCESS;
         }

@@ -6,12 +6,12 @@ namespace PCF\Addendum\Http\Middleware;
 use PCF\Addendum\Attribute\RateLimit;
 use GuzzleHttp\Psr7\Response as PsrResponse;
 use GuzzleHttp\Psr7\Utils;
+use PCF\Addendum\Http\RouteParameters;
 use Predis\Client as RedisClient;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Server\MiddlewareInterface;
 use Psr\Http\Server\RequestHandlerInterface;
-use ReflectionClass;
 
 /**
  * Rate limiting middleware
@@ -34,7 +34,8 @@ class RateLimitMiddleware implements MiddlewareInterface
     private const DEFAULT_UNAUTHENTICATED_WINDOW = 60;  // 1 minute
 
     public function __construct(
-        private readonly RedisClient|RedisInterface $redis
+        private readonly RedisClient|RedisInterface $redis,
+        private readonly ?RateLimit $rateLimitDefinition = null
     ) {}
 
     public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
@@ -46,7 +47,7 @@ class RateLimitMiddleware implements MiddlewareInterface
         }
 
         // Get RateLimit attribute (if any)
-        $rateLimitAttr = $this->getRateLimitAttribute($actionClass);
+        $rateLimitAttr = $this->getRateLimitAttribute();
 
         // Check if rate limiting is explicitly disabled
         if ($rateLimitAttr && $rateLimitAttr->maxAttempts === 0) {
@@ -98,20 +99,9 @@ class RateLimitMiddleware implements MiddlewareInterface
     /**
      * Get RateLimit attribute from action class
      */
-    private function getRateLimitAttribute(string $actionClass): ?RateLimit
+    private function getRateLimitAttribute(): ?RateLimit
     {
-        if (!class_exists($actionClass)) {
-            return null;
-        }
-
-        $reflection = new ReflectionClass($actionClass);
-        $attributes = $reflection->getAttributes(RateLimit::class);
-
-        if (empty($attributes)) {
-            return null;
-        }
-
-        return $attributes[0]->newInstance();
+        return $this->rateLimitDefinition;
     }
 
     /**
@@ -164,8 +154,13 @@ class RateLimitMiddleware implements MiddlewareInterface
             return null;
         }
 
-        $routeParams = $request->getAttribute('route_params', []);
-        return $routeParams[$rateLimit->scopeKey] ?? null;
+        $routeParams = $request->getAttribute('route_params');
+
+        if ($routeParams instanceof RouteParameters) {
+            return $routeParams->get($rateLimit->scopeKey);
+        }
+
+        return null;
     }
 
     /**

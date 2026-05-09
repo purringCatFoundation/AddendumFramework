@@ -310,6 +310,6 @@ final class AuthServiceTest extends TestCase
 
         $result = $this->authService->login($email, $password, $fingerprint);
 
-        $this->assertTrue($result->isAdmin);
+        $this->assertTrue($result->isAdmin());
     }
 }

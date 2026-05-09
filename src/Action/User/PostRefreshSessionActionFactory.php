@@ -10,7 +10,7 @@ class PostRefreshSessionActionFactory implements ActionFactoryInterface
 {
     public function create(): PostRefreshSessionAction
     {
-        $service = new AuthServiceFactory()->create();
+        $service = AuthServiceFactory::fromEnvironment()->create();
 
         return new PostRefreshSessionAction($service);
     }

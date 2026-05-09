@@ -7,9 +7,8 @@ use PCF\Addendum\Action\FactoryInterface;
 
 class JwtConfigFactory implements FactoryInterface
 {
-    public function __construct(private ?SystemEnvironmentProvider $envProvider = null)
+    public function __construct(private SystemEnvironmentProvider $envProvider)
     {
-        $this->envProvider ??= new SystemEnvironmentProvider();
     }
 
     public function create(): JwtConfig

@@ -5,6 +5,7 @@ namespace PCF\Addendum\Http\Middleware;
 
 use PCF\Addendum\Http\Middleware\MiddlewareFactoryInterface;
 use PCF\Addendum\Auth\TokenValidationRepositoryFactory;
+use PCF\Addendum\Database\DbConnectionFactory;
 use PCF\Addendum\Http\MiddlewareOptions;
 use PCF\Addendum\Repository\User\ApplicationTokenRepositoryFactory;
 use RuntimeException;
@@ -13,7 +14,7 @@ class AuthFactory implements MiddlewareFactoryInterface
 {
     public function create(MiddlewareOptions $options): Auth
     {
-        $tokenValidationRepository = new TokenValidationRepositoryFactory()->create();
+        $tokenValidationRepository = new TokenValidationRepositoryFactory(new DbConnectionFactory())->create();
         $applicationTokenRepository = new ApplicationTokenRepositoryFactory()->create();
 
         return new Auth(

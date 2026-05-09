@@ -5,30 +5,38 @@ namespace PCF\Addendum\Http\Routing;
 
 use PCF\Addendum\Attribute\AccessControl as AccessControlAttribute;
 use PCF\Addendum\Http\Middleware\Auth;
+use PCF\Addendum\Http\Middleware\AccessControlGuardianCollection;
 use PCF\Addendum\Http\MiddlewareOptions;
+use PCF\Addendum\Http\RouteMiddlewareCollection;
 use PCF\Addendum\Http\RouteMiddleware;
 use PCF\Addendum\Http\Middleware\AccessControl;
 use ReflectionClass;
 
 class AccessControlMiddlewareProvider implements MiddlewareProviderInterface
 {
-    public function provide(ReflectionClass $actionClass): array
+    public function provide(ReflectionClass $actionClass): RouteMiddlewareCollection
     {
-        $hasAccessControlAttributes = !empty($actionClass->getAttributes(AccessControlAttribute::class));
+        $attributes = $actionClass->getAttributes(AccessControlAttribute::class);
 
-        if (!$hasAccessControlAttributes) {
-            return [];
+        if ($attributes === []) {
+            return RouteMiddlewareCollection::empty();
         }
 
-        return [
+        $guardians = new AccessControlGuardianCollection();
+
+        foreach ($attributes as $attribute) {
+            $guardians->add($attribute->newInstance()->getGuardianDefinition());
+        }
+
+        return new RouteMiddlewareCollection([
             new RouteMiddleware(
                 Auth::class,
                 new MiddlewareOptions()
             ),
             new RouteMiddleware(
                 AccessControl::class,
-                new MiddlewareOptions()
+                new MiddlewareOptions(additionalData: ['accessControlGuardians' => $guardians])
             )
-        ];
+        ]);
     }
 }

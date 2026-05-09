@@ -7,6 +7,9 @@ use PCF\Addendum\Http\Middleware\ValidateRequestAttribute;
 use PCF\Addendum\Attribute\ValidateRequest;
 use PCF\Addendum\Validation\Rules\Required;
 use PCF\Addendum\Validation\Rules\Email;
+use PCF\Addendum\Validation\RequestFieldSource;
+use PCF\Addendum\Validation\RequestValidationPlan;
+use PCF\Addendum\Validation\RequestValidationPlanRule;
 use GuzzleHttp\Psr7\Response as PsrResponse;
 use GuzzleHttp\Psr7\ServerRequest;
 use PHPUnit\Framework\TestCase;
@@ -32,7 +35,7 @@ final class MultipleValidateRequestTest extends TestCase
             ->method('handle')
             ->willReturn($expectedResponse);
 
-        $middleware = new ValidateRequestAttribute(TestMultipleValidationAction::class);
+        $middleware = $this->middleware();
         $request = new ServerRequest('POST', '/', ['Content-Type' => 'application/json'], json_encode([
             'email' => 'test@example.com',
             'password' => 'password123'
@@ -49,7 +52,7 @@ final class MultipleValidateRequestTest extends TestCase
         $nextHandler->expects($this->never())
             ->method('handle');
 
-        $middleware = new ValidateRequestAttribute(TestMultipleValidationAction::class);
+        $middleware = $this->middleware();
         $request = new ServerRequest('POST', '/', ['Content-Type' => 'application/json'], json_encode([
             'email' => 'invalid-email',
             'password' => 'password123'
@@ -72,7 +75,7 @@ final class MultipleValidateRequestTest extends TestCase
         $nextHandler->expects($this->never())
             ->method('handle');
 
-        $middleware = new ValidateRequestAttribute(TestMultipleValidationAction::class);
+        $middleware = $this->middleware();
         $request = new ServerRequest('POST', '/', ['Content-Type' => 'application/json'], json_encode([]));
         
         $response = $middleware->process($request, $nextHandler);
@@ -84,5 +87,13 @@ final class MultipleValidateRequestTest extends TestCase
         $this->assertArrayHasKey('password', $body['errors']);
         $this->assertContains('Field is required', $body['errors']['email']);
         $this->assertContains('Field is required', $body['errors']['password']);
+    }
+
+    private function middleware(): ValidateRequestAttribute
+    {
+        return new ValidateRequestAttribute(new RequestValidationPlan([
+            new RequestValidationPlanRule('email', RequestFieldSource::Body, [new Required(), new Email()]),
+            new RequestValidationPlanRule('password', RequestFieldSource::Body, [new Required()]),
+        ]));
     }
 }

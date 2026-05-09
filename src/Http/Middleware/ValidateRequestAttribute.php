@@ -3,18 +3,18 @@ declare(strict_types=1);
 
 namespace PCF\Addendum\Http\Middleware;
 
-use JsonException;
-use PCF\Addendum\Attribute\ValidateRequest;
 use PCF\Addendum\Exception\HttpException;
-use PCF\Addendum\Validation\RequestValidatorInterface;
 use GuzzleHttp\Psr7\Response as PsrResponse;
 use GuzzleHttp\Psr7\Utils;
-use PCF\Addendum\Validation\Rules\JwtToken;
+use Ds\Map;
+use PCF\Addendum\Validation\RequestAttributeProviderValidatorInterface;
+use PCF\Addendum\Validation\RequestValidationErrorBag;
+use PCF\Addendum\Validation\RequestValidationPlan;
+use PCF\Addendum\Validation\RequestValidationResult;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Server\MiddlewareInterface;
 use Psr\Http\Server\RequestHandlerInterface;
-use ReflectionClass;
 
 class ValidateRequestAttribute implements MiddlewareInterface
 {
@@ -24,8 +24,10 @@ class ValidateRequestAttribute implements MiddlewareInterface
         | JSON_HEX_APOS
         | JSON_HEX_QUOT;
 
-    public function __construct(private readonly string $actionClass)
-    {
+    public function __construct(
+        private readonly RequestValidationPlan $plan = new RequestValidationPlan(),
+        private readonly RequestFieldValueExtractor $extractor = new RequestFieldValueExtractor()
+    ) {
     }
 
     /**
@@ -49,8 +51,8 @@ class ValidateRequestAttribute implements MiddlewareInterface
             );
         }
         
-        if (!empty($result['errors'])) {
-            $body = Utils::streamFor(json_encode(['errors' => $result['errors']], self::JSON_FLAGS));
+        if (!$result->errors->isEmpty()) {
+            $body = Utils::streamFor(json_encode(['errors' => $result->errors->toArray()], self::JSON_FLAGS));
             return new PsrResponse(
                 400,
                 ['Content-Type' => 'application/json'],
@@ -58,92 +60,45 @@ class ValidateRequestAttribute implements MiddlewareInterface
             );
         }
 
-        return $handler->handle($result['request']);
+        return $handler->handle($result->request);
     }
 
-    private function validateRequest(ServerRequestInterface $request): array
+    private function validateRequest(ServerRequestInterface $request): RequestValidationResult
     {
-        $reflection = new ReflectionClass($this->actionClass);
-        $validateRequestAttributes = $reflection->getAttributes(ValidateRequest::class);
+        $errors = new RequestValidationErrorBag();
 
-        if (empty($validateRequestAttributes)) {
-            return ['errors' => [], 'request' => $request];
+        if ($this->plan->isEmpty()) {
+            return new RequestValidationResult($errors, $request);
         }
 
-        $allErrors = [];
+        $requestAttributes = new Map();
 
-        foreach ($validateRequestAttributes as $attributeReflection) {
-            $validateRequestAttribute = $attributeReflection->newInstance();
-
-            $fieldName = $validateRequestAttribute->fieldName;
-            $source = $validateRequestAttribute->getSource();
-            $validators = $validateRequestAttribute->validators;
-
-            $value = $this->getFieldValue($request, $fieldName, $source);
+        foreach ($this->plan as $rule) {
+            $value = $this->extractor->extract($request, $rule->fieldName, $rule->source);
 
             // Validate with all validators for this field
-            foreach ($validators as $validator) {
+            foreach ($rule->validators() as $validator) {
                 $error = $validator->validate($value);
                 if ($error !== null) {
-                    if (!isset($allErrors[$fieldName])) {
-                        $allErrors[$fieldName] = [];
-                    }
-                    $allErrors[$fieldName][] = $error;
-                } else {
-                    if ($validator instanceof JwtToken) {
-                        $request = $request->withAttribute('jwt_token', $value);
+                    $errors->add($rule->fieldName, $error);
+
+                    continue;
+                }
+
+                if ($validator instanceof RequestAttributeProviderValidatorInterface) {
+                    foreach ($validator->requestAttributes($value) as $name => $attributeValue) {
+                        $requestAttributes->put($name, $attributeValue);
                     }
                 }
             }
         }
 
-        return ['errors' => $allErrors, 'request' => $request];
-    }
-
-    private function getFieldValue(ServerRequestInterface $request, string $fieldName, string $source): mixed
-    {
-        return match ($source) {
-            ValidateRequest::SOURCE_HEADER => $this->getHeaderValue($request, $fieldName),
-            ValidateRequest::SOURCE_QUERY => $request->getQueryParams()[$fieldName] ?? null,
-            ValidateRequest::SOURCE_BODY => $this->getRequestData($request)[$fieldName] ?? null,
-            default => null
-        };
-    }
-
-    private function getHeaderValue(ServerRequestInterface $request, string $fieldName): mixed
-    {
-        if ($fieldName === 'jwt_token') {
-            $authHeader = $request->getHeaderLine('Authorization');
-            if (preg_match('/Bearer\s+(.+)$/i', $authHeader, $matches)) {
-                return trim($matches[1]);
+        if ($errors->isEmpty()) {
+            foreach ($requestAttributes as $name => $value) {
+                $request = $request->withAttribute($name, $value);
             }
-            return null;
         }
 
-        $headerValue = $request->getHeaderLine($fieldName);
-        return $headerValue !== '' ? $headerValue : null;
-    }
-
-    private function getRequestData(ServerRequestInterface $request): array
-    {
-        $contentType = $request->getHeaderLine('Content-Type');
-        
-        if (str_contains($contentType, 'application/json')) {
-            $body = (string) $request->getBody();
-
-            if (trim($body) === '') {
-                return [];
-            }
-
-            try {
-                $data = json_decode($body, true, flags: JSON_THROW_ON_ERROR);
-            } catch (JsonException $exception) {
-                throw HttpException::badRequest('Malformed JSON request body');
-            }
-
-            return is_array($data) ? $data : [];
-        }
-        
-        return $request->getParsedBody() ?? [];
+        return new RequestValidationResult($errors, $request);
     }
 }

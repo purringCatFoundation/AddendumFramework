@@ -3,6 +3,8 @@ declare(strict_types=1);
 
 namespace PCF\Addendum\Command;
 
+use Ds\Map;
+use Ds\Vector;
 use PDO;
 use PDOException;
 use Symfony\Component\Console\Attribute\AsCommand;
@@ -232,7 +234,7 @@ class DatabaseTestCommand extends Command
         $migrationPaths = $this->getMigrationPaths();
         $appliedCount = 0;
 
-        if (empty($migrationPaths)) {
+        if ($migrationPaths->isEmpty()) {
             $this->io->warning('No migration directories found');
             return true;
         }
@@ -245,16 +247,20 @@ class DatabaseTestCommand extends Command
 
             // Get applied migrations
             $stmt = $pdo->query('SELECT name FROM migrations');
-            $applied = array_flip($stmt->fetchAll(PDO::FETCH_COLUMN) ?: []);
+            $applied = new Map();
+
+            foreach ($stmt->fetchAll(PDO::FETCH_COLUMN) ?: [] as $name) {
+                $applied->put($name, true);
+            }
 
             // Find and apply migrations
             $finder = new Finder();
-            $finder->files()->name('*.sql')->in($migrationPaths)->sortByName();
+            $finder->files()->name('*.sql')->in($migrationPaths->toArray())->sortByName();
 
             foreach ($finder as $file) {
                 $name = $file->getFilename();
 
-                if (isset($applied[$name])) {
+                if ($applied->hasKey($name)) {
                     continue;
                 }
 
@@ -300,20 +306,26 @@ class DatabaseTestCommand extends Command
         $this->io->section('Running tests');
 
         $testPaths = $this->getTestPaths();
-        $validPaths = array_filter($testPaths, fn($p) => is_dir($p));
+        $validPaths = new Vector();
 
-        if (empty($validPaths)) {
+        foreach ($testPaths as $path) {
+            if (is_dir($path)) {
+                $validPaths->push($path);
+            }
+        }
+
+        if ($validPaths->isEmpty()) {
             $this->io->warning('No test directories found');
             return Command::SUCCESS;
         }
 
         $finder = new Finder();
-        $finder->files()->name($pattern)->in($validPaths)->sortByName();
+        $finder->files()->name($pattern)->in($validPaths->toArray())->sortByName();
 
         $total = 0;
         $passed = 0;
         $failed = 0;
-        $failedTests = [];
+        $failedTests = new Vector();
 
         foreach ($finder as $file) {
             $total++;
@@ -323,15 +335,12 @@ class DatabaseTestCommand extends Command
 
             $result = $this->runTestFile($file->getRealPath());
 
-            if ($result['success']) {
+            if ($result->success) {
                 $passed++;
-                $this->io->text("  <fg=green>✓ PASSED</> ({$result['tests']} tests)");
+                $this->io->text("  <fg=green>✓ PASSED</> ({$result->tests} tests)");
             } else {
                 $failed++;
-                $failedTests[] = [
-                    'name' => $testName,
-                    'output' => $result['output'],
-                ];
+                $failedTests->push(new DatabaseTestFailure($testName, $result->output));
                 $this->io->text("  <fg=red>✗ FAILED</>");
             }
         }
@@ -347,11 +356,11 @@ class DatabaseTestCommand extends Command
         );
 
         // Show failed test details
-        if (!empty($failedTests)) {
+        if (!$failedTests->isEmpty()) {
             $this->io->section('Failed Tests');
             foreach ($failedTests as $failedTest) {
-                $this->io->error($failedTest['name']);
-                $this->io->text($failedTest['output']);
+                $this->io->error($failedTest->name);
+                $this->io->text($failedTest->output);
             }
         }
 
@@ -364,10 +373,7 @@ class DatabaseTestCommand extends Command
         }
     }
 
-    /**
-     * @return array{success: bool, tests: int, output: string}
-     */
-    private function runTestFile(string $filePath): array
+    private function runTestFile(string $filePath): DatabaseTestResult
     {
         $sql = file_get_contents($filePath);
 
@@ -384,7 +390,7 @@ class DatabaseTestCommand extends Command
     private function findPsql(): ?string
     {
         // Check common locations
-        $paths = ['/usr/bin/psql', '/usr/local/bin/psql', 'psql'];
+        $paths = new Vector(['/usr/bin/psql', '/usr/local/bin/psql', 'psql']);
 
         foreach ($paths as $path) {
             $process = new \Symfony\Component\Process\Process(['which', $path]);
@@ -402,10 +408,7 @@ class DatabaseTestCommand extends Command
         return null;
     }
 
-    /**
-     * @return array{success: bool, tests: int, output: string}
-     */
-    private function runTestWithPsql(string $psqlPath, string $filePath): array
+    private function runTestWithPsql(string $psqlPath, string $filePath): DatabaseTestResult
     {
         $process = new \Symfony\Component\Process\Process([
             $psqlPath,
@@ -426,10 +429,7 @@ class DatabaseTestCommand extends Command
         return $this->parseTapOutput($output, $process->isSuccessful());
     }
 
-    /**
-     * @return array{success: bool, tests: int, output: string}
-     */
-    private function runTestWithPdo(string $sql): array
+    private function runTestWithPdo(string $sql): DatabaseTestResult
     {
         $pdo = $this->getTestPdo();
 
@@ -487,19 +487,16 @@ class DatabaseTestCommand extends Command
         }
 
         $result = $this->parseTapOutput($output, !$hasFailure);
-        $result['output'] = $output;
 
-        return $result;
+        return $result->withOutput($output);
     }
 
-    /**
-     * @return string[]
-     */
-    private function splitSqlStatements(string $sql): array
+    /** @return Vector<string> */
+    private function splitSqlStatements(string $sql): Vector
     {
         // Simple split by semicolon - doesn't handle strings with semicolons
         // For pgTAP tests, this should be sufficient
-        $statements = [];
+        $statements = new Vector();
         $current = '';
         $inString = false;
         $stringChar = '';
@@ -521,7 +518,7 @@ class DatabaseTestCommand extends Command
             }
 
             if (!$inString && $char === ';') {
-                $statements[] = $current;
+                $statements->push($current);
                 $current = '';
             } else {
                 $current .= $char;
@@ -529,16 +526,13 @@ class DatabaseTestCommand extends Command
         }
 
         if (trim($current) !== '') {
-            $statements[] = $current;
+            $statements->push($current);
         }
 
         return $statements;
     }
 
-    /**
-     * @return array{success: bool, tests: int, output: string}
-     */
-    private function parseTapOutput(string $output, bool $processSuccess): array
+    private function parseTapOutput(string $output, bool $processSuccess): DatabaseTestResult
     {
         $testCount = 0;
         $hasFailure = false;
@@ -556,41 +550,48 @@ class DatabaseTestCommand extends Command
             }
         }
 
-        return [
-            'success' => !$hasFailure && $processSuccess,
-            'tests' => $testCount,
-            'output' => $output,
-        ];
+        return new DatabaseTestResult(
+            success: !$hasFailure && $processSuccess,
+            tests: $testCount,
+            output: $output,
+        );
     }
 
     /**
      * Get paths to migration directories
-     * @return string[]
+     *
+     * @return Vector<string>
      */
-    private function getMigrationPaths(): array
+    private function getMigrationPaths(): Vector
     {
         // Framework migrations (framework/src/Command -> framework/migrations)
         $frameworkMigrations = dirname(__DIR__, 2) . '/migrations';
         // Project migrations (framework/src/Command -> project root/migrations)
         $projectMigrations = dirname(__DIR__, 3) . '/migrations';
 
-        return array_filter(
-            [$frameworkMigrations, $projectMigrations],
-            fn($p) => is_dir($p)
-        );
+        $paths = new Vector();
+
+        foreach ([$frameworkMigrations, $projectMigrations] as $path) {
+            if (is_dir($path)) {
+                $paths->push($path);
+            }
+        }
+
+        return $paths;
     }
 
     /**
      * Get paths to test directories
-     * @return string[]
+     *
+     * @return Vector<string>
      */
-    private function getTestPaths(): array
+    private function getTestPaths(): Vector
     {
         // Framework tests (framework/src/Command -> framework/dev/tests/database)
         $frameworkTests = dirname(__DIR__, 2) . '/dev/tests/database';
         // Project tests (framework/src/Command -> project root/tests/database)
         $projectTests = dirname(__DIR__, 3) . '/tests/database';
 
-        return [$frameworkTests, $projectTests];
+        return new Vector([$frameworkTests, $projectTests]);
     }
 }

@@ -109,60 +109,11 @@ class AuthService
     }
 
     /**
-     * Create CHARACTER token pair for selected character
-     *
-     * This allows user to switch from USER context to CHARACTER context
-     * for in-game actions.
-     *
-     * @param string $userUuid User identifier (owner of character)
-     * @param string $characterUuid Character identifier
-     * @param string $fingerprint Device fingerprint from client
-     */
-    public function selectCharacter(string $userUuid, string $characterUuid, string $fingerprint): TokenPair
-    {
-        $now = time();
-        $fingerprintHash = sha1($fingerprint);
-
-        // Check if user is admin (admin maintains elevated privileges even in character context)
-        $isAdmin = $this->adminRepository->isUserAdmin($userUuid);
-        $tokenType = $isAdmin ? TokenType::ADMIN : TokenType::CHARACTER;
-
-        $accessToken = Jwt::encode(new TokenPayload(
-            $userUuid,
-            $now + $this->jwtConfig->accessTokenLifetime,
-            $this->jtiGenerator->generate(),
-            $now,
-            $tokenType,
-            $characterUuid,
-            $fingerprintHash
-        ), $this->jwtConfig->secret);
-
-        $refreshToken = Jwt::encode(new TokenPayload(
-            $userUuid,
-            $now + $this->jwtConfig->refreshTokenLifetime,
-            $this->jtiGenerator->generate(),
-            $now,
-            $tokenType,
-            $characterUuid,
-            $fingerprintHash
-        ), $this->jwtConfig->secret);
-
-        return new TokenPair(
-            accessToken: $accessToken,
-            refreshToken: $refreshToken,
-            expiresIn: $this->jwtConfig->accessTokenLifetime,
-            tokenType: $tokenType->value,
-            isAdmin: $isAdmin,
-            characterUuid: $characterUuid
-        );
-    }
-
-    /**
      * Create access and refresh token pair for user
      *
      * Automatically checks if user is admin and sets appropriate token type:
-     * - If user has active admin privileges → TokenType::ADMIN
-     * - Otherwise → TokenType::USER
+     * - If user has active admin privileges, use TokenType::ADMIN
+     * - Otherwise use TokenType::USER
      *
      * @param string $userUuid User identifier
      * @param string $fingerprint Device fingerprint from client
@@ -173,8 +124,8 @@ class AuthService
         $fingerprintHash = sha1($fingerprint);
 
         // Check if user is admin
-        $isAdmin = $this->adminRepository->isUserAdmin($userUuid);
-        $tokenType = $isAdmin ? TokenType::ADMIN : TokenType::USER;
+        $admin = $this->adminRepository->isUserAdmin($userUuid);
+        $tokenType = $admin ? TokenType::ADMIN : TokenType::USER;
 
         $accessToken = Jwt::encode(new TokenPayload(
             $userUuid,
@@ -182,7 +133,6 @@ class AuthService
             $this->jtiGenerator->generate(),
             $now,
             $tokenType,
-            null,
             $fingerprintHash
         ), $this->jwtConfig->secret);
 
@@ -192,7 +142,6 @@ class AuthService
             $this->jtiGenerator->generate(),
             $now,
             TokenType::USER_REFRESH,
-            null,
             $fingerprintHash
         ), $this->jwtConfig->secret);
 
@@ -201,7 +150,7 @@ class AuthService
             refreshToken: $refreshToken,
             expiresIn: $this->jwtConfig->accessTokenLifetime,
             tokenType: 'Bearer',
-            isAdmin: $isAdmin
+            admin: $admin
         );
     }
 }

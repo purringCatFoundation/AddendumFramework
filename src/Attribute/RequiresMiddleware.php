@@ -3,6 +3,8 @@ declare(strict_types=1);
 
 namespace PCF\Addendum\Attribute;
 
+use Ds\Vector;
+
 /**
  * Marker interface for attributes that require specific middleware
  *
@@ -14,7 +16,7 @@ interface RequiresMiddleware
     /**
      * Get the middleware class(es) required by this attribute
      *
-     * @return array<class-string> Array of middleware class names
+     * @return Vector<class-string>
      */
-    public function getRequiredMiddleware(): array;
+    public function getRequiredMiddleware(): Vector;
 }

@@ -6,15 +6,12 @@ namespace PCF\Addendum\Http\Cache;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 
-final class RedisHttpCacheBackendProvider implements HttpCacheBackendProvider
+final readonly class RedisHttpCacheBackendProvider implements HttpCacheBackendProvider
 {
-    private readonly HttpCacheKeyGenerator $keyGenerator;
-
     public function __construct(
         private HttpResponseCache $cache,
-        ?HttpCacheKeyGenerator $keyGenerator = null
+        private HttpCacheKeyGenerator $keyGenerator
     ) {
-        $this->keyGenerator = $keyGenerator ?? new HttpCacheKeyGenerator();
     }
 
     public function supports(HttpCacheConfigurationInterface $configuration): bool

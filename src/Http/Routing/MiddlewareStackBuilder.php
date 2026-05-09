@@ -3,7 +3,9 @@ declare(strict_types=1);
 
 namespace PCF\Addendum\Http\Routing;
 
+use Ds\Vector;
 use PCF\Addendum\Http\RouteMiddleware;
+use PCF\Addendum\Http\RouteMiddlewareCollection;
 use PCF\Addendum\Http\Middleware\AccessControl;
 use PCF\Addendum\Http\Middleware\Auth;
 use PCF\Addendum\Http\Middleware\RateLimitMiddleware;
@@ -21,18 +23,18 @@ class MiddlewareStackBuilder
         AccessControl::class => 50,
     ];
 
-    /** @var list<MiddlewareProviderInterface> */
-    private array $providers = [];
+    /** @var Vector<MiddlewareProviderInterface> */
+    private Vector $providers;
 
     public function __construct()
     {
-        $this->providers = [
+        $this->providers = new Vector([
             new CustomMiddlewareProvider(),
             new RequestSignatureMiddlewareProvider(),
             new RateLimitMiddlewareProvider(),
             new ValidateRequestMiddlewareProvider(),
             new AccessControlMiddlewareProvider(),
-        ];
+        ]);
     }
 
     /**
@@ -42,16 +44,14 @@ class MiddlewareStackBuilder
      * run before response decoration middleware.
      *
      * @param ReflectionClass $actionClass
-     * @return list<RouteMiddleware>
      */
-    public function buildStack(ReflectionClass $actionClass): array
+    public function buildStack(ReflectionClass $actionClass): RouteMiddlewareCollection
     {
-        $middlewares = [];
+        $middlewares = RouteMiddlewareCollection::empty();
 
         // Collect middlewares from all providers
         foreach ($this->providers as $provider) {
-            $providedMiddlewares = $provider->provide($actionClass);
-            $middlewares = array_merge($middlewares, $providedMiddlewares);
+            $middlewares = $middlewares->merge($provider->provide($actionClass));
         }
 
         $middlewares = $this->deduplicateInfrastructureMiddlewares($middlewares);
@@ -61,13 +61,11 @@ class MiddlewareStackBuilder
     }
 
     /**
-     * @param list<RouteMiddleware> $middlewares
-     * @return list<RouteMiddleware>
      */
-    private function deduplicateInfrastructureMiddlewares(array $middlewares): array
+    private function deduplicateInfrastructureMiddlewares(RouteMiddlewareCollection $middlewares): RouteMiddlewareCollection
     {
         $seen = [];
-        $deduplicated = [];
+        $deduplicated = new RouteMiddlewareCollection();
 
         foreach ($middlewares as $middleware) {
             $middlewareClass = $middleware->getClass();
@@ -80,17 +78,13 @@ class MiddlewareStackBuilder
                 $seen[$middlewareClass] = true;
             }
 
-            $deduplicated[] = $middleware;
+            $deduplicated->add($middleware);
         }
 
         return $deduplicated;
     }
 
-    /**
-     * @param list<RouteMiddleware> $middlewares
-     * @return list<RouteMiddleware>
-     */
-    private function sortByPriority(array $middlewares): array
+    private function sortByPriority(RouteMiddlewareCollection $middlewares): RouteMiddlewareCollection
     {
         $indexed = [];
 
@@ -108,6 +102,6 @@ class MiddlewareStackBuilder
             }
         );
 
-        return array_map(static fn(array $item): RouteMiddleware => $item[1], $indexed);
+        return new RouteMiddlewareCollection(array_map(static fn(array $item): RouteMiddleware => $item[1], $indexed));
     }
 }

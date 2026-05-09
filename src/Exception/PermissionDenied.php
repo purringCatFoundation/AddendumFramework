@@ -11,8 +11,8 @@ namespace PCF\Addendum\Exception;
  * privileges or ownership to perform the requested action.
  *
  * Example scenarios:
- * - User trying to access another user's character
- * - Character trying to transfer an item they don't own
+ * - User trying to access another user's resource
+ * - User trying to modify an item they don't own
  * - User without admin privileges trying to access admin endpoints
  */
 class PermissionDenied extends \RuntimeException

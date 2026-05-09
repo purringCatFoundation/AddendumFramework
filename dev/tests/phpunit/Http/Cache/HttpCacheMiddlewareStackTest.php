@@ -25,7 +25,7 @@ final class HttpCacheMiddlewareStackTest extends TestCase
             Auth::class,
             RequestSignature::class,
             RateLimitMiddleware::class,
-        ], array_map(static fn($middleware): string => $middleware->getClass(), $middlewares));
+        ], array_map(static fn($middleware): string => $middleware->getClass(), $middlewares->all()->toArray()));
     }
 }
 

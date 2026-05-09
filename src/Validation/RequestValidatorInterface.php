@@ -3,9 +3,7 @@ declare(strict_types=1);
 
 namespace PCF\Addendum\Validation;
 
-use Psr\Http\Message\ServerRequestInterface;
-
-interface RequestValidatorInterface
+interface RequestValidatorInterface extends RequestValidationConstraintInterface
 {
     /**
      * Validate extracted value and return validation error if any.

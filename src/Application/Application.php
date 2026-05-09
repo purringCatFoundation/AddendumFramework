@@ -3,7 +3,10 @@ declare(strict_types=1);
 
 namespace PCF\Addendum\Application;
 
+use Ds\Map;
+use Ds\Vector;
 use GuzzleHttp\Psr7\ServerRequest;
+use PCF\Addendum\Application\Cache\ApplicationCacheConfigurationFactory;
 use PCF\Addendum\Attribute\AttributeReader;
 use PCF\Addendum\Attribute\AttributeReaderFactory;
 use PCF\Addendum\Attribute\Actions;
@@ -11,6 +14,9 @@ use PCF\Addendum\Attribute\Commands;
 use PCF\Addendum\Attribute\Name;
 use PCF\Addendum\Attribute\Version;
 use PCF\Addendum\Command\CommandScanner;
+use PCF\Addendum\Config\SystemEnvironmentProvider;
+use PCF\Addendum\Http\Cache\HttpCacheBackendProviderFactory;
+use PCF\Addendum\Http\Cache\HttpCacheConfigurationFactory;
 use PCF\Addendum\Http\Cache\HttpCacheRuntimeFactory;
 use PCF\Addendum\Http\Routing\ActionScanner;
 use Psr\Http\Message\ResponseInterface;
@@ -39,14 +45,14 @@ abstract class Application
     // Cached attribute values
     private ?string $name = null;
     private ?string $version = null;
-    private ?array $actionPaths = null;
-    private ?array $commandPaths = null;
+    private ?Vector $actionPaths = null;
+    private ?Vector $commandPaths = null;
     private ?string $frameworkDir = null;
     private AttributeReader $attributeReader;
 
-    public function __construct(?AttributeReaderFactory $attributeReaderFactory = null)
+    public function __construct()
     {
-        $this->attributeReader = ($attributeReaderFactory ?? new AttributeReaderFactory())->create($this);
+        $this->attributeReader = new AttributeReaderFactory()->create($this);
     }
 
     /**
@@ -118,10 +124,11 @@ abstract class Application
     /**
      * Get all action paths from #[Actions] attributes + framework built-in
      */
-    public function getActionPaths(): array
+    /** @return Vector<string> */
+    public function getActionPaths(): Vector
     {
         if ($this->actionPaths === null) {
-            $paths = [];
+            $paths = new Vector();
 
             // Framework built-in actions
             $frameworkDir = $this->getFrameworkDir();
@@ -129,44 +136,45 @@ abstract class Application
             $frameworkAdminActions = $frameworkDir . '/Action/Admin';
 
             if (is_dir($frameworkUserActions)) {
-                $paths[] = $frameworkUserActions;
+                $paths->push($frameworkUserActions);
             }
             if (is_dir($frameworkAdminActions)) {
-                $paths[] = $frameworkAdminActions;
+                $paths->push($frameworkAdminActions);
             }
 
             // Application actions from attributes
-            $paths = array_merge($paths, $this->attributeReader->getAttributeValues(Actions::class, 'path')->getValues());
+            $paths->push(...$this->attributeReader->getAttributeValues(Actions::class, 'path')->getValues());
 
             $this->actionPaths = $paths;
         }
 
-        return $this->actionPaths;
+        return $this->actionPaths->copy();
     }
 
     /**
      * Get all command paths from #[Commands] attributes + framework built-in
      */
-    public function getCommandPaths(): array
+    /** @return Vector<string> */
+    public function getCommandPaths(): Vector
     {
         if ($this->commandPaths === null) {
-            $paths = [];
+            $paths = new Vector();
 
             // Framework built-in commands
             $frameworkDir = $this->getFrameworkDir();
             $frameworkCommands = $frameworkDir . '/Command';
 
             if (is_dir($frameworkCommands)) {
-                $paths[] = $frameworkCommands;
+                $paths->push($frameworkCommands);
             }
 
             // Application commands from attributes
-            $paths = array_merge($paths, $this->attributeReader->getAttributeValues(Commands::class, 'path')->getValues());
+            $paths->push(...$this->attributeReader->getAttributeValues(Commands::class, 'path')->getValues());
 
             $this->commandPaths = $paths;
         }
 
-        return $this->commandPaths;
+        return $this->commandPaths->copy();
     }
 
     /**
@@ -220,13 +228,22 @@ abstract class Application
      */
     protected function createHttpApp(): App
     {
-        $scanners = array_map(
-            fn(string $path) => new ActionScanner($path),
-            $this->getActionPaths()
-        );
-        $httpCacheRuntimeFactory = new HttpCacheRuntimeFactory()->create();
+        $environmentProvider = new SystemEnvironmentProvider();
+        $cacheConfiguration = new ApplicationCacheConfigurationFactory($environmentProvider)->create();
+        $scanners = new Vector();
 
-        return new AppFactory($scanners, $httpCacheRuntimeFactory)->create();
+        if (!$cacheConfiguration->isEnabled() || $cacheConfiguration->shouldRefreshOnRequest() || !is_file($cacheConfiguration->routesFile())) {
+            foreach ($this->getActionPaths() as $path) {
+                $scanners->push(new ActionScanner($path));
+            }
+        }
+
+        $httpCacheRuntimeFactory = new HttpCacheRuntimeFactory(
+            new HttpCacheConfigurationFactory($environmentProvider),
+            new HttpCacheBackendProviderFactory()
+        )->create();
+
+        return new AppFactory($scanners, $httpCacheRuntimeFactory, $cacheConfiguration)->create();
     }
 
     /**
@@ -239,7 +256,7 @@ abstract class Application
             $this->getVersion()
         );
 
-        $commands = [];
+        $commands = new Map();
 
         foreach ($this->getCommandPaths() as $path) {
             if (!is_dir($path)) {
@@ -247,17 +264,19 @@ abstract class Application
             }
 
             $scanner = new CommandScanner($path);
-            $commands = array_merge($commands, $scanner->scanCommands());
+            foreach ($scanner->scanCommands() as $name => $definition) {
+                $commands->put($name, $definition);
+            }
         }
 
         foreach ($commands as $definition) {
-            $factoryClass = $definition['factory'] ?? null;
-            $commandClass = $definition['class'];
+            $factoryClass = $definition->factory;
+            $commandClass = $definition->class;
 
             $consoleApp->add(new LazyCommand(
-                name: $definition['name'],
+                name: $definition->name,
                 aliases: [],
-                description: $definition['description'],
+                description: $definition->description,
                 isHidden: false,
                 commandFactory: $factoryClass !== null
                     ? fn() => new $factoryClass()->create()

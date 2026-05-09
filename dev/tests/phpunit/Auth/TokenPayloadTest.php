@@ -17,7 +17,6 @@ final class TokenPayloadTest extends TestCase
             jti: 'jti-123',
             iat: 1234567800,
             tokenType: TokenType::USER,
-            characterUuid: 'char-uuid-456',
             fingerprintHash: 'fingerprint-hash-789'
         );
 
@@ -26,7 +25,6 @@ final class TokenPayloadTest extends TestCase
         $this->assertSame('jti-123', $payload->jti);
         $this->assertSame(1234567800, $payload->iat);
         $this->assertSame(TokenType::USER, $payload->tokenType);
-        $this->assertSame('char-uuid-456', $payload->characterUuid);
         $this->assertSame('fingerprint-hash-789', $payload->fingerprintHash);
     }
 
@@ -41,7 +39,6 @@ final class TokenPayloadTest extends TestCase
 
         $this->assertSame('user-uuid-123', $payload->sub);
         $this->assertNull($payload->tokenType);
-        $this->assertNull($payload->characterUuid);
         $this->assertNull($payload->fingerprintHash);
     }
 
@@ -53,7 +50,6 @@ final class TokenPayloadTest extends TestCase
             jti: 'jti-123',
             iat: 1234567800,
             tokenType: TokenType::USER,
-            characterUuid: 'char-uuid-456',
             fingerprintHash: 'fingerprint-hash-789'
         );
 
@@ -64,7 +60,6 @@ final class TokenPayloadTest extends TestCase
         $this->assertSame('jti-123', $json['jti']);
         $this->assertSame(1234567800, $json['iat']);
         $this->assertSame('user', $json['tokenType']);
-        $this->assertSame('char-uuid-456', $json['characterUuid']);
         $this->assertSame('fingerprint-hash-789', $json['fingerprintHash']);
         $this->assertSame('user', $json['type']);
     }
@@ -83,7 +78,6 @@ final class TokenPayloadTest extends TestCase
         $this->assertSame('user-uuid-123', $json['sub']);
         $this->assertSame(1234567890, $json['exp']);
         $this->assertArrayNotHasKey('tokenType', $json);
-        $this->assertArrayNotHasKey('characterUuid', $json);
         $this->assertArrayNotHasKey('fingerprintHash', $json);
     }
 
@@ -95,7 +89,6 @@ final class TokenPayloadTest extends TestCase
             'jti' => 'jti-123',
             'iat' => 1234567800,
             'tokenType' => 'admin',
-            'characterUuid' => 'char-uuid-456',
             'fingerprintHash' => 'fingerprint-hash-789'
         ];
 
@@ -106,120 +99,82 @@ final class TokenPayloadTest extends TestCase
         $this->assertSame('jti-123', $payload->jti);
         $this->assertSame(1234567800, $payload->iat);
         $this->assertSame(TokenType::ADMIN, $payload->tokenType);
-        $this->assertSame('char-uuid-456', $payload->characterUuid);
         $this->assertSame('fingerprint-hash-789', $payload->fingerprintHash);
     }
 
     public function testHasElevatedPrivilegesWithAdminToken(): void
     {
-        $payload = new TokenPayload(
-            sub: 'user-uuid-123',
-            exp: 1234567890,
-            jti: 'jti-123',
-            iat: 1234567800,
-            tokenType: TokenType::ADMIN
-        );
+        $payload = new TokenPayload('user-uuid-123', 1234567890, 'jti-123', 1234567800, TokenType::ADMIN);
 
         $this->assertTrue($payload->hasElevatedPrivileges());
     }
 
     public function testHasElevatedPrivilegesWithApplicationToken(): void
     {
-        $payload = new TokenPayload(
-            sub: 'user-uuid-123',
-            exp: 1234567890,
-            jti: 'jti-123',
-            iat: 1234567800,
-            tokenType: TokenType::APPLICATION
-        );
+        $payload = new TokenPayload('user-uuid-123', 1234567890, 'jti-123', 1234567800, TokenType::APPLICATION);
 
         $this->assertTrue($payload->hasElevatedPrivileges());
     }
 
     public function testHasElevatedPrivilegesWithUserToken(): void
     {
-        $payload = new TokenPayload(
-            sub: 'user-uuid-123',
-            exp: 1234567890,
-            jti: 'jti-123',
-            iat: 1234567800,
-            tokenType: TokenType::USER
-        );
+        $payload = new TokenPayload('user-uuid-123', 1234567890, 'jti-123', 1234567800, TokenType::USER);
+
+        $this->assertFalse($payload->hasElevatedPrivileges());
+    }
+
+    public function testHasElevatedPrivilegesWithApplicationDefinedToken(): void
+    {
+        $payload = new TokenPayload('user-uuid-123', 1234567890, 'jti-123', 1234567800, 'workspace_member');
 
         $this->assertFalse($payload->hasElevatedPrivileges());
     }
 
     public function testHasElevatedPrivilegesWithNullTokenType(): void
     {
-        $payload = new TokenPayload(
-            sub: 'user-uuid-123',
-            exp: 1234567890,
-            jti: 'jti-123',
-            iat: 1234567800
-        );
+        $payload = new TokenPayload('user-uuid-123', 1234567890, 'jti-123', 1234567800);
 
         $this->assertFalse($payload->hasElevatedPrivileges());
     }
 
     public function testRequiresOwnershipValidationWithUserToken(): void
     {
-        $payload = new TokenPayload(
-            sub: 'user-uuid-123',
-            exp: 1234567890,
-            jti: 'jti-123',
-            iat: 1234567800,
-            tokenType: TokenType::USER
-        );
+        $payload = new TokenPayload('user-uuid-123', 1234567890, 'jti-123', 1234567800, TokenType::USER);
 
         $this->assertTrue($payload->requiresOwnershipValidation());
     }
 
     public function testRequiresOwnershipValidationWithAdminToken(): void
     {
-        $payload = new TokenPayload(
-            sub: 'user-uuid-123',
-            exp: 1234567890,
-            jti: 'jti-123',
-            iat: 1234567800,
-            tokenType: TokenType::ADMIN
-        );
+        $payload = new TokenPayload('user-uuid-123', 1234567890, 'jti-123', 1234567800, TokenType::ADMIN);
 
         $this->assertFalse($payload->requiresOwnershipValidation());
     }
 
+    public function testRequiresOwnershipValidationWithApplicationDefinedToken(): void
+    {
+        $payload = new TokenPayload('user-uuid-123', 1234567890, 'jti-123', 1234567800, 'workspace_member');
+
+        $this->assertTrue($payload->requiresOwnershipValidation());
+    }
+
     public function testRequiresOwnershipValidationWithNullTokenType(): void
     {
-        $payload = new TokenPayload(
-            sub: 'user-uuid-123',
-            exp: 1234567890,
-            jti: 'jti-123',
-            iat: 1234567800
-        );
+        $payload = new TokenPayload('user-uuid-123', 1234567890, 'jti-123', 1234567800);
 
         $this->assertTrue($payload->requiresOwnershipValidation());
     }
 
     public function testGetTokenTypeReturnsActualType(): void
     {
-        $payload = new TokenPayload(
-            sub: 'user-uuid-123',
-            exp: 1234567890,
-            jti: 'jti-123',
-            iat: 1234567800,
-            tokenType: TokenType::CHARACTER
-        );
+        $payload = new TokenPayload('user-uuid-123', 1234567890, 'jti-123', 1234567800, 'workspace_member');
 
-        $this->assertSame(TokenType::CHARACTER, $payload->getTokenType());
+        $this->assertSame('workspace_member', $payload->getTokenType());
     }
 
     public function testGetTokenTypeDefaultsToUserWhenNull(): void
     {
-        $payload = new TokenPayload(
-            sub: 'user-uuid-123',
-            exp: 1234567890,
-            jti: 'jti-123',
-            iat: 1234567800
-        );
+        $payload = new TokenPayload('user-uuid-123', 1234567890, 'jti-123', 1234567800);
 
         $this->assertSame(TokenType::USER, $payload->getTokenType());
     }

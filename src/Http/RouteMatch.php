@@ -8,12 +8,9 @@ use Psr\Http\Message\ServerRequestInterface;
 
 class RouteMatch
 {
-    /**
-     * @param list<RouteMiddleware> $middlewares
-     */
     public function __construct(
         public readonly string $actionClass,
-        public readonly array $middlewares,
+        public readonly RouteMiddlewareCollection $middlewares,
         public readonly ServerRequestInterface $request,
         public readonly ResourcePolicyCollection $resourcePolicies
     ) {

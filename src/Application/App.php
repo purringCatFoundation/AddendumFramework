@@ -36,11 +36,11 @@ class App implements RequestHandlerInterface
             $match = $this->router->match($request);
             if ($match === null) {
                 $allowedMethods = $this->router->getAllowedMethodsForPath($request->getUri()->getPath());
-                if ($allowedMethods !== []) {
+                if (!$allowedMethods->isEmpty()) {
                     $response = $this->jsonResponse(
                         ['error' => 'Method Not Allowed'],
                         405,
-                        ['Allow' => implode(', ', $allowedMethods)]
+                        ['Allow' => implode(', ', $allowedMethods->toArray())]
                     );
 
                     return $this->withSecurityHeaders($response);

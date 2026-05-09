@@ -11,6 +11,11 @@ class MaxLength extends AbstractRequestValidator
     {
     }
 
+    public function maxLength(): int
+    {
+        return $this->maxLength;
+    }
+
     /**
      * Validate maximum string length
      *

@@ -1,0 +1,28 @@
+name: Docker
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Compose Build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Validate Compose configuration
+        run: docker compose -f dev/docker-compose.yaml config
+
+      - name: Build development images
+        run: docker compose -f dev/docker-compose.yaml build app frankenphp postgres

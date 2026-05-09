@@ -17,6 +17,8 @@ use PCF\Addendum\Http\Cache\RedisHttpCache;
 use PCF\Addendum\Http\Cache\RedisHttpCacheBackendProvider;
 use PCF\Addendum\Http\Cache\NginxHttpCache;
 use PCF\Addendum\Http\Cache\NginxHttpCacheBackendProvider;
+use PCF\Addendum\Http\Cache\NoneHttpCache;
+use PCF\Addendum\Http\Cache\NoneHttpCacheBackendProvider;
 use PCF\Addendum\Http\Cache\ResourcePolicyCollection;
 use PCF\Addendum\Http\Cache\VarnishHttpCache;
 use PCF\Addendum\Http\Cache\VarnishHttpCacheBackendProvider;
@@ -39,7 +41,7 @@ final class HttpCacheProviderTest extends TestCase
 
     public function testVarnishHeaders(): void
     {
-        $response = new VarnishHttpCacheBackendProvider()->buildHeaders(new VarnishHttpCache(), $this->policy(), $this->context(), new PsrResponse());
+        $response = new VarnishHttpCacheBackendProvider()->buildHeaders($this->varnish(), $this->policy(), $this->context(), new PsrResponse());
 
         $this->assertSame('max-age=120', $response->getHeaderLine('Surrogate-Control'));
         $this->assertSame('article:1 user-1', $response->getHeaderLine('Surrogate-Key'));
@@ -47,7 +49,7 @@ final class HttpCacheProviderTest extends TestCase
 
     public function testNginxHeaders(): void
     {
-        $response = new NginxHttpCacheBackendProvider()->buildHeaders(new NginxHttpCache(), $this->policy(), $this->context(), new PsrResponse());
+        $response = new NginxHttpCacheBackendProvider()->buildHeaders($this->nginx(), $this->policy(), $this->context(), new PsrResponse());
 
         $this->assertSame('120', $response->getHeaderLine('X-Accel-Expires'));
         $this->assertSame('article:1,user-1', $response->getHeaderLine('X-Cache-Tags'));
@@ -56,7 +58,7 @@ final class HttpCacheProviderTest extends TestCase
     public function testCaddySouinHeaders(): void
     {
         $response = new CaddyHttpCacheBackendProvider()->buildHeaders(
-            new CaddyHttpCache(cacheHandler: CaddyHttpCache::SOUIN),
+            new CaddyHttpCache(context: new HttpCacheContext(), cacheHandler: CaddyHttpCache::SOUIN),
             $this->policy(),
             $this->context(),
             new PsrResponse()
@@ -67,7 +69,7 @@ final class HttpCacheProviderTest extends TestCase
 
     public function testCloudflareHeaders(): void
     {
-        $response = new CloudflareHttpCacheBackendProvider()->buildHeaders(new CloudflareHttpCache(), $this->policy(), $this->context(), new PsrResponse());
+        $response = new CloudflareHttpCacheBackendProvider()->buildHeaders($this->cloudflare(), $this->policy(), $this->context(), new PsrResponse());
 
         $this->assertSame(
             'public, max-age=60, s-maxage=120, stale-while-revalidate=30, stale-if-error=90',
@@ -91,15 +93,32 @@ final class HttpCacheProviderTest extends TestCase
 
     public function testRedisProviderIsCreatedByFactory(): void
     {
-        $provider = new HttpCacheBackendProviderFactory()->create(new RedisHttpCache());
+        $provider = new HttpCacheBackendProviderFactory()->create($this->redis());
 
         $this->assertInstanceOf(RedisHttpCacheBackendProvider::class, $provider);
+    }
+
+    public function testNoneProviderIsCreatedByFactory(): void
+    {
+        $provider = new HttpCacheBackendProviderFactory()->create(new NoneHttpCache(new HttpCacheContext()));
+
+        $this->assertInstanceOf(NoneHttpCacheBackendProvider::class, $provider);
+    }
+
+    public function testProxyProvidersAreCreatedByFactory(): void
+    {
+        $factory = new HttpCacheBackendProviderFactory();
+
+        $this->assertInstanceOf(VarnishHttpCacheBackendProvider::class, $factory->create($this->varnish()));
+        $this->assertInstanceOf(NginxHttpCacheBackendProvider::class, $factory->create($this->nginx()));
+        $this->assertInstanceOf(CaddyHttpCacheBackendProvider::class, $factory->create(new CaddyHttpCache(new HttpCacheContext())));
+        $this->assertInstanceOf(CloudflareHttpCacheBackendProvider::class, $factory->create($this->cloudflare()));
     }
 
     public function testVarnishInvalidationHeaders(): void
     {
         $response = new VarnishHttpCacheBackendProvider()->invalidate(
-            new VarnishHttpCache(),
+            $this->varnish(),
             $this->resourcePolicies(),
             $this->resourceRequest(),
             new PsrResponse(204)
@@ -112,7 +131,7 @@ final class HttpCacheProviderTest extends TestCase
     public function testNginxInvalidationHeaders(): void
     {
         $response = new NginxHttpCacheBackendProvider()->invalidate(
-            new NginxHttpCache(),
+            $this->nginx(),
             $this->resourcePolicies(),
             $this->resourceRequest(),
             new PsrResponse(204)
@@ -125,7 +144,7 @@ final class HttpCacheProviderTest extends TestCase
     public function testCaddyInvalidationHeaders(): void
     {
         $response = new CaddyHttpCacheBackendProvider()->invalidate(
-            new CaddyHttpCache(cacheHandler: CaddyHttpCache::SOUIN),
+            new CaddyHttpCache(context: new HttpCacheContext(), cacheHandler: CaddyHttpCache::SOUIN),
             $this->resourcePolicies(),
             $this->resourceRequest(),
             new PsrResponse(204)
@@ -138,7 +157,7 @@ final class HttpCacheProviderTest extends TestCase
     public function testCloudflareInvalidationHeaders(): void
     {
         $response = new CloudflareHttpCacheBackendProvider()->invalidate(
-            new CloudflareHttpCache(),
+            $this->cloudflare(),
             $this->resourcePolicies(),
             $this->resourceRequest(),
             new PsrResponse(204)
@@ -185,5 +204,25 @@ final class HttpCacheProviderTest extends TestCase
     private function resourceRequest(): ServerRequest
     {
         return new ServerRequest('PATCH', '/articles/1')->withAttribute('articleUuid', '1');
+    }
+
+    private function redis(): RedisHttpCache
+    {
+        return new RedisHttpCache(new HttpCacheContext());
+    }
+
+    private function varnish(): VarnishHttpCache
+    {
+        return new VarnishHttpCache(new HttpCacheContext());
+    }
+
+    private function nginx(): NginxHttpCache
+    {
+        return new NginxHttpCache(new HttpCacheContext());
+    }
+
+    private function cloudflare(): CloudflareHttpCache
+    {
+        return new CloudflareHttpCache(new HttpCacheContext());
     }
 }

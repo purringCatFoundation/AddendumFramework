@@ -1,0 +1,80 @@
+#!/usr/bin/env php
+<?php
+declare(strict_types=1);
+
+use PCF\Addendum\Command\CommandScanner;
+use Ds\Map;
+use Ds\Vector;
+use Symfony\Component\Console\Application;
+use Symfony\Component\Console\Command\LazyCommand;
+
+$autoload = $_composer_autoload_path ?? dirname(__DIR__) . '/vendor/autoload.php';
+
+if (!is_file($autoload)) {
+    fwrite(STDERR, sprintf("Cannot find Composer autoload file: %s\n", $autoload));
+    exit(1);
+}
+
+require $autoload;
+
+$console = new Application('Addendum', '1.0.0');
+$paths = commandPaths(dirname(__DIR__));
+$commands = new Map();
+
+foreach ($paths as $path) {
+    if (!is_dir($path)) {
+        continue;
+    }
+
+    foreach (new CommandScanner($path)->scanCommands() as $name => $definition) {
+        $commands->put($name, $definition);
+    }
+}
+
+$commands->ksort();
+
+foreach ($commands as $definition) {
+    $factoryClass = $definition->factory;
+    $commandClass = $definition->class;
+
+    $console->add(new LazyCommand(
+        name: $definition->name,
+        aliases: [],
+        description: $definition->description,
+        isHidden: false,
+        commandFactory: $factoryClass !== null
+            ? static fn() => new $factoryClass()->create()
+            : static fn() => new $commandClass(),
+    ));
+}
+
+exit($console->run());
+
+/**
+ * @return Vector<string>
+ */
+function commandPaths(string $frameworkRoot): Vector
+{
+    $paths = new Vector([
+        $frameworkRoot . '/src/Command',
+        getcwd() . '/src/Command',
+    ]);
+
+    $extraPaths = getenv('ADDENDUM_COMMAND_PATHS');
+
+    if (is_string($extraPaths) && trim($extraPaths) !== '') {
+        $paths->push(...explode(PATH_SEPARATOR, $extraPaths));
+    }
+
+    $clean = new Vector();
+
+    foreach ($paths as $path) {
+        $path = rtrim(trim($path), '/');
+
+        if ($path !== '' && !$clean->contains($path)) {
+            $clean->push($path);
+        }
+    }
+
+    return $clean;
+}

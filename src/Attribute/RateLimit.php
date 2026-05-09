@@ -18,7 +18,7 @@ use Attribute;
  * class PostSessionAction { }
  *
  * #[RateLimit(maxAttempts: 10, windowSeconds: 3600, scope: RateLimit::SCOPE_USER)]
- * class PostCharacterAction { }
+ * class PostResourceAction { }
  */
 #[Attribute(Attribute::TARGET_CLASS)]
 class RateLimit

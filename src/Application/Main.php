@@ -4,18 +4,15 @@ declare(strict_types=1);
 namespace PCF\Addendum\Application;
 
 use GuzzleHttp\Psr7\ServerRequest;
+use PCF\Addendum\Application\Cache\ApplicationCacheConfigurationFactory;
+use PCF\Addendum\Application\Cache\CompiledHttpApplicationGenerator;
+use PCF\Addendum\Application\Cache\CompiledHttpApplicationCache;
+use PCF\Addendum\Application\Cache\PhpFileWriter;
+use PCF\Addendum\Config\SystemEnvironmentProvider;
 use Psr\Http\Message\ResponseInterface;
 
 class Main
 {
-    /**
-     * @param AppFactory|null $appFactory
-     */
-    public function __construct(
-        private readonly ?AppFactory $appFactory = null
-    ) {
-    }
-
     /**
      * Execute the main application request handling
      *
@@ -25,10 +22,19 @@ class Main
     {
         error_reporting(E_ALL & ~E_DEPRECATED);
         ini_set('display_errors', '0');
-        $app = $this->appFactory->create();
+        $app = $this->createApp();
         $request = ServerRequest::fromGlobals();
         $response = $app->handle($request);
         $this->emit($response);
+    }
+
+    private function createApp(): App
+    {
+        return new CompiledHttpApplicationCache(
+            new ApplicationCacheConfigurationFactory(new SystemEnvironmentProvider())->create(),
+            new CompiledHttpApplicationGenerator(),
+            new PhpFileWriter()
+        )->load();
     }
 
     /**

@@ -10,7 +10,7 @@ class PostUserActionFactory implements ActionFactoryInterface
 {
     public function create(): PostUserAction
     {
-        $service = new AuthServiceFactory()->create();
+        $service = AuthServiceFactory::fromEnvironment()->create();
 
         return new PostUserAction($service);
     }

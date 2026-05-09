@@ -19,7 +19,7 @@ final class AttributeReaderTest extends TestCase
 
         $this->assertInstanceOf(AttributeValueInterface::class, $value);
         $this->assertSame(Name::class, $value->getAttributeType());
-        $this->assertSame(['Demo'], $value->getValues());
+        $this->assertSame(['Demo'], $value->getValues()->toArray());
         $this->assertSame('Demo', $value->getFirst());
     }
 
@@ -28,7 +28,7 @@ final class AttributeReaderTest extends TestCase
         $reader = new AttributeReader(new AttributeReaderFixture());
         $value = $reader->getAttributeValues(Actions::class, 'path');
 
-        $this->assertSame(['/one', '/two'], $value->getValues());
+        $this->assertSame(['/one', '/two'], $value->getValues()->toArray());
     }
 
     public function testReturnsEmptyValueForMissingAttribute(): void
@@ -37,7 +37,7 @@ final class AttributeReaderTest extends TestCase
         $value = $reader->getAttributeValues(Actions::class, 'path');
 
         $this->assertSame(Actions::class, $value->getAttributeType());
-        $this->assertSame([], $value->getValues());
+        $this->assertSame([], $value->getValues()->toArray());
         $this->assertSame('fallback', $value->getFirst('fallback'));
     }
 

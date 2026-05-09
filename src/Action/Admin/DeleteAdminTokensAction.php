@@ -12,6 +12,7 @@ use PCF\Addendum\Auth\TokenValidationRepository;
 use PCF\Addendum\Guardian\AdminOnlyGuardian;
 use PCF\Addendum\Http\Request;
 use PCF\Addendum\Http\Middleware\Auth;
+use PCF\Addendum\Http\Middleware\ClassAccessControlGuardianDefinition;
 use PCF\Addendum\Response\NoContentResponse;
 use PCF\Addendum\Validation\Rules\Required;
 use InvalidArgumentException;
@@ -39,7 +40,7 @@ use InvalidArgumentException;
  */
 #[Route(path: '/v1/admin/token-revocations', method: 'POST')]
 #[Middleware(Auth::class)]
-#[AccessControl(AdminOnlyGuardian::class)]
+#[AccessControl(new ClassAccessControlGuardianDefinition(AdminOnlyGuardian::class))]
 #[ValidateRequest('reason', new Required())]
 class DeleteAdminTokensAction implements ActionInterface
 {

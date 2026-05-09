@@ -5,10 +5,8 @@ namespace PCF\Addendum\Http\Cache;
 
 final readonly class RedisHttpCache implements HttpCacheConfigurationInterface
 {
-    public HttpCacheContext $context;
-
     public function __construct(
-        ?HttpCacheContext $context = null,
+        public HttpCacheContext $context,
         public ?string $url = null,
         public string $host = '127.0.0.1',
         public int $port = 6379,
@@ -17,6 +15,5 @@ final readonly class RedisHttpCache implements HttpCacheConfigurationInterface
         public string $keyPrefix = 'addendum:http_cache:',
         public string $hitHeader = 'X-Redis-Cache'
     ) {
-        $this->context = $context ?? new HttpCacheContext();
     }
 }

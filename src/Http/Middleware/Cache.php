@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace PCF\Addendum\Http\Middleware;
 
+use Ds\Vector;
 use PCF\Addendum\Cache\CacheKeyGenerator;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
@@ -11,13 +12,20 @@ use Psr\Http\Server\RequestHandlerInterface;
 
 class Cache implements MiddlewareInterface
 {
+    /** @var Vector<string> */
+    private Vector $params;
+
+    /**
+     * @param iterable<string> $params
+     */
     public function __construct(
         private CacheKeyGenerator $generator,
         private int $ttl = 60,
         private ?string $key = null,
         private bool $useSession = false,
-        private array $params = []
+        iterable $params = []
     ) {
+        $this->params = $params instanceof Vector ? $params->copy() : new Vector($params);
     }
 
     public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface

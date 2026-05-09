@@ -83,14 +83,14 @@ final class AdminTest extends TestCase
         );
 
         $this->assertNull($admin->grantedByUserUuid);
-        $this->assertTrue($admin->isGrantedViaCli);
+        $this->assertTrue($admin->isGrantedViaCli());
     }
 
     public function testIsActivePropertyHookForActiveAdmin(): void
     {
         $admin = Admin::create(userUuid: 'user-uuid-123');
 
-        $this->assertTrue($admin->isActive);
+        $this->assertTrue($admin->isActive());
     }
 
     public function testIsActivePropertyHookForRevokedAdmin(): void
@@ -105,7 +105,7 @@ final class AdminTest extends TestCase
 
         $admin = Admin::fromDatabaseRow($row);
 
-        $this->assertFalse($admin->isActive);
+        $this->assertFalse($admin->isActive());
     }
 
     public function testIsGrantedViaCliPropertyHook(): void
@@ -113,8 +113,8 @@ final class AdminTest extends TestCase
         $cliAdmin = Admin::create(userUuid: 'user-uuid', grantedByUserUuid: null);
         $userAdmin = Admin::create(userUuid: 'user-uuid', grantedByUserUuid: 'granter-uuid');
 
-        $this->assertTrue($cliAdmin->isGrantedViaCli);
-        $this->assertFalse($userAdmin->isGrantedViaCli);
+        $this->assertTrue($cliAdmin->isGrantedViaCli());
+        $this->assertFalse($userAdmin->isGrantedViaCli());
     }
 
     public function testIsRevokedViaCliPropertyHook(): void
@@ -130,7 +130,7 @@ final class AdminTest extends TestCase
 
         $admin = Admin::fromDatabaseRow($row);
 
-        $this->assertTrue($admin->isRevokedViaCli);
+        $this->assertTrue($admin->isRevokedViaCli());
     }
 
     public function testIsRevokedViaCliReturnsFalseForUserRevocation(): void
@@ -146,14 +146,14 @@ final class AdminTest extends TestCase
 
         $admin = Admin::fromDatabaseRow($row);
 
-        $this->assertFalse($admin->isRevokedViaCli);
+        $this->assertFalse($admin->isRevokedViaCli());
     }
 
     public function testIsRevokedViaCliReturnsFalseForActiveAdmin(): void
     {
         $admin = Admin::create(userUuid: 'user-uuid');
 
-        $this->assertFalse($admin->isRevokedViaCli);
+        $this->assertFalse($admin->isRevokedViaCli());
     }
 
     public function testDaysSinceGrantedPropertyHook(): void
@@ -215,8 +215,8 @@ final class AdminTest extends TestCase
             reason: 'Security incident'
         );
 
-        $this->assertTrue($admin->isActive); // Original unchanged
-        $this->assertFalse($revokedAdmin->isActive);
+        $this->assertTrue($admin->isActive()); // Original unchanged
+        $this->assertFalse($revokedAdmin->isActive());
         $this->assertSame($revokedAt, $revokedAdmin->revokedAt);
         $this->assertSame('revoker-uuid', $revokedAdmin->revokedByUserUuid);
         $this->assertSame('Security incident', $revokedAdmin->revokedReason);

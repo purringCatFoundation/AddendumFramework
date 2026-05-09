@@ -5,23 +5,33 @@ namespace PCF\Addendum\Auth;
 
 use PCF\Addendum\Action\FactoryInterface;
 use PCF\Addendum\Config\JwtConfigFactory;
+use PCF\Addendum\Config\SystemEnvironmentProvider;
+use PCF\Addendum\Database\DbConnectionFactory;
 use PCF\Addendum\Repository\User\AdminRepositoryFactory;
 use PCF\Addendum\Repository\User\AuthRepositoryFactory;
 
 class AuthServiceFactory implements FactoryInterface
 {
     public function __construct(
-        private ?AuthRepositoryFactory $authRepositoryFactory = null,
-        private ?TokenValidationRepositoryFactory $tokenValidationRepositoryFactory = null,
-        private ?AdminRepositoryFactory $adminRepositoryFactory = null,
-        private ?JwtConfigFactory $jwtConfigFactory = null,
-        private ?JtiGeneratorFactory $jtiGeneratorFactory = null
+        private AuthRepositoryFactory $authRepositoryFactory,
+        private TokenValidationRepositoryFactory $tokenValidationRepositoryFactory,
+        private AdminRepositoryFactory $adminRepositoryFactory,
+        private JwtConfigFactory $jwtConfigFactory,
+        private JtiGeneratorFactory $jtiGeneratorFactory
     ) {
-        $this->authRepositoryFactory ??= new AuthRepositoryFactory();
-        $this->tokenValidationRepositoryFactory ??= new TokenValidationRepositoryFactory();
-        $this->adminRepositoryFactory ??= new AdminRepositoryFactory();
-        $this->jwtConfigFactory ??= new JwtConfigFactory();
-        $this->jtiGeneratorFactory ??= new JtiGeneratorFactory();
+    }
+
+    public static function fromEnvironment(): self
+    {
+        $dbConnectionFactory = new DbConnectionFactory();
+
+        return new self(
+            new AuthRepositoryFactory($dbConnectionFactory),
+            new TokenValidationRepositoryFactory($dbConnectionFactory),
+            new AdminRepositoryFactory(),
+            new JwtConfigFactory(new SystemEnvironmentProvider()),
+            new JtiGeneratorFactory()
+        );
     }
 
     public function create(): AuthService
