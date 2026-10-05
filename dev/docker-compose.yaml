@@ -20,7 +20,10 @@ services:
       POSTGRES_PASSWORD: addendum
       REDIS_URL: tcp://redis:6379
       HTTP_CACHE_PROVIDER: none
-      JWT_SECRET: test-secret-for-addendum-framework-32-bytes
+      JWT_PRIVATE_KEY_PATH: /app/var/keys/jwt_private.pem
+      JWT_PUBLIC_KEY_PATH: /app/var/keys/jwt_public.pem
+      JWT_PRIVATE_KEY_PASSPHRASE: ""
+      REQUEST_SIGNATURE_SECRET: test-request-signature-secret-32-bytes-minimum
       COMPOSER_CACHE_DIR: /tmp/composer-cache
     volumes:
       - ..:/app
@@ -51,7 +54,10 @@ services:
       POSTGRES_PASSWORD: addendum
       REDIS_URL: tcp://redis:6379
       HTTP_CACHE_PROVIDER: none
-      JWT_SECRET: test-secret-for-addendum-framework-32-bytes
+      JWT_PRIVATE_KEY_PATH: /app/var/keys/jwt_private.pem
+      JWT_PUBLIC_KEY_PATH: /app/var/keys/jwt_public.pem
+      JWT_PRIVATE_KEY_PASSPHRASE: ""
+      REQUEST_SIGNATURE_SECRET: test-request-signature-secret-32-bytes-minimum
       COMPOSER_CACHE_DIR: /tmp/composer-cache
     volumes:
       - ..:/app
@@ -87,7 +93,10 @@ services:
       REDIS_HTTP_CACHE_DATABASE: "1"
       REDIS_HTTP_CACHE_KEY_PREFIX: "addendum:dev:http_cache:"
       REDIS_HTTP_CACHE_HIT_HEADER: X-Redis-Cache
-      JWT_SECRET: dev-secret-for-addendum-framework-32-bytes
+      JWT_PRIVATE_KEY_PATH: /app/var/keys/jwt_private.pem
+      JWT_PUBLIC_KEY_PATH: /app/var/keys/jwt_public.pem
+      JWT_PRIVATE_KEY_PASSPHRASE: ""
+      REQUEST_SIGNATURE_SECRET: dev-request-signature-secret-32-bytes-minimum
       LOG_FILE: php://stderr
       COMPOSER_CACHE_DIR: /tmp/composer-cache
       XDEBUG_MODE: ${XDEBUG_MODE:-debug,develop}

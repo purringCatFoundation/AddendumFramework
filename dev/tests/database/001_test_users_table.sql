@@ -3,7 +3,7 @@
 
 BEGIN;
 
-SELECT plan(35);
+SELECT plan(33);
 
 -- =============================================================================
 -- TEST USERS TABLE
@@ -56,7 +56,7 @@ SELECT has_column('token_revocations', 'reason', 'Token revocations should have 
 -- Test 25-27: Token revocations indexes
 SELECT has_index('token_revocations', 'idx_token_revocations_user_uuid', 'Token revocations should have user_uuid index');
 SELECT has_index('token_revocations', 'idx_token_revocations_revoked_before', 'Token revocations should have revoked_before index');
-SELECT has_index('token_revocations', 'idx_token_revocations_composite', 'Token revocations should have composite index');
+SELECT has_index('token_revocations', 'idx_token_revocations_subject_token_type', 'Token revocations should have subject/type cutoff index');
 
 -- =============================================================================
 -- TEST FUNCTIONS
@@ -99,7 +99,9 @@ SELECT is(
 -- Test 35: Token validation works for new user
 SELECT is(
     is_token_valid(
-        (SELECT uuid FROM users WHERE email = 'test@example.com'),
+        'user',
+        (SELECT uuid::text FROM users WHERE email = 'test@example.com'),
+        'new-user-jti',
         NOW()::TIMESTAMP
     ),
     TRUE,

@@ -15,6 +15,7 @@ PCF Addendum is a PHP 8.5 API framework for PSR-based HTTP applications. It prov
 - [Framework Overview](#framework-overview)
 - [Design Principles](#design-principles)
 - [First Steps](#first-steps)
+- [JWT Signing](#jwt-signing)
 - [Development Server](#development-server)
 - [Documentation](#documentation)
 
@@ -25,6 +26,7 @@ PCF Addendum is a PHP 8.5 API framework for PSR-based HTTP applications. It prov
 - PostgreSQL with `ext-pdo_pgsql`
 - Redis for built-in rate limiting, request replay protection and optional Redis HTTP response caching
 - `ext-ds`, installed with PHP Installer for Extensions: `pie install php-ds/ext-ds`
+- `ext-openssl` for RS256 JWT signing and verification
 
 ## Framework Overview
 
@@ -126,6 +128,71 @@ Build compiled HTTP cache when running with compiled routes:
 
 ```bash
 ./bin/addendum cache:warmup
+```
+
+## JWT Signing
+
+JWT tokens are signed with OpenSSL RSA keys using `RS256`. Generate a key pair outside the public web root:
+
+```bash
+mkdir -p var/keys
+openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out var/keys/jwt_private.pem
+openssl rsa -in var/keys/jwt_private.pem -pubout -out var/keys/jwt_public.pem
+chmod 600 var/keys/jwt_private.pem
+chmod 644 var/keys/jwt_public.pem
+```
+
+Store absolute paths in `.env`:
+
+```dotenv
+JWT_PRIVATE_KEY_PATH=/absolute/path/to/var/keys/jwt_private.pem
+JWT_PUBLIC_KEY_PATH=/absolute/path/to/var/keys/jwt_public.pem
+JWT_PRIVATE_KEY_PASSPHRASE=
+JWT_ACCESS_TOKEN_LIFETIME=7200
+JWT_REFRESH_TOKEN_LIFETIME=1209600
+REQUEST_SIGNATURE_SECRET=change-this-request-signature-secret-32-bytes-minimum
+```
+
+`JWT_PRIVATE_KEY_PASSPHRASE` may stay empty for an unencrypted private key. `REQUEST_SIGNATURE_SECRET` is separate from JWT signing and is used only by request signature HMAC validation.
+
+The FrankenPHP dev app exposes `GET /dev/auth/token` to verify that a request is correctly authorized and signed. Import `dev/postman/addendum-dev-auth.postman_collection.json`, set `access_token`, `fingerprint` and `request_signature_secret`, then run the `Inspect Authorized Token` request. The signing script is also available as `dev/js/sign-request.js`.
+
+Application token hashes are stored in the database and cached for 300 seconds under `auth:application_token:{jti}`. Validation compares the cached or database hash with `hash_equals()`. Revoke application tokens through `token_revocations` with an issue-time cutoff:
+
+```bash
+./bin/addendum app:revoke-tokens --type=application --uuid=external-api --before="2026-05-17 15:22:17" --reason=rotation
+./bin/addendum app:revoke-tokens --type=application --uuid=external-api --before=1779031337 --reason=rotation
+```
+
+### User sessions and refresh tokens
+
+Each login creates a session ID (`sid`) shared by its access and refresh tokens. Every token has its own `jti`. Refreshing issues a new pair with new token IDs while retaining the session ID.
+
+| Endpoint | Accepted token | Behavior |
+| --- | --- | --- |
+| Protected API endpoints | User/admin access token, or application token where permitted | `Auth` always rejects refresh tokens |
+| `POST /v1/session-refreshes` | `user_refresh` only | `RefreshAuth` validates the refresh token and session revocation; no access token is required |
+| `DELETE /v1/sessions/current` | User/admin access token | Revokes all access and refresh tokens belonging to this session; other sessions remain active |
+
+Refresh and logout requests retain request-signature, fingerprint and nonce/replay checks. To sign a refresh request with `dev/js/sign-request.js`, set its `access_token` variable to the refresh token for that request.
+
+Apply pending migrations before running the updated application:
+
+```bash
+./bin/addendum db:migrate --run
+./bin/addendum cache:warmup
+```
+
+Migration `009_session_revocations.sql` adds session revocations, retires obsolete SQL function overloads left by the original schema, and keeps the four-argument token validator for existing SQL callers. Authentication uses the new five-argument validator with `sid`. Previously issued user/admin/refresh tokens without `sid` are rejected and require a new login. Application tokens do not require `sid`.
+
+Session revocation records are retained by `cleanup_expired_revocations()`: their creation date alone does not prove that all tokens in a refreshable session have expired.
+
+The PostgreSQL-backed session lifecycle test can run against a dedicated database with all migrations applied. It rolls back its changes:
+
+```bash
+ADDENDUM_TEST_PG_DSN='pgsql:host=127.0.0.1;port=5432;dbname=addendum_test' \
+ADDENDUM_TEST_PG_USER=addendum ADDENDUM_TEST_PG_PASSWORD=addendum \
+./vendor/bin/phpunit dev/tests/phpunit/Auth/SessionRevocationIntegrationTest.php
 ```
 
 ## Development Server

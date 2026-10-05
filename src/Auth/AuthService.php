@@ -67,13 +67,21 @@ class AuthService
      */
     public function refresh(string $token, string $fingerprint): TokenPair
     {
-        $payload = Jwt::decode($token, $this->jwtConfig->secret);
+        $payload = Jwt::decode($token, $this->jwtConfig->publicKeyPath);
 
         if ($payload->tokenType !== TokenType::USER_REFRESH) {
             throw new UnauthorizedException('Invalid token type');
         }
 
-        if (!$this->tokenValidationRepository->isTokenValid($payload->sub, $payload->iat)) {
+        if (
+            !$this->tokenValidationRepository->isTokenValid(
+                $payload->getTokenType(),
+                $payload->sub,
+                $payload->jti,
+                $payload->iat,
+                $payload->sid
+            )
+        ) {
             throw new UnauthorizedException('Refresh token has been revoked');
         }
 
@@ -83,18 +91,31 @@ class AuthService
             throw new UnauthorizedException('Device fingerprint mismatch');
         }
 
-        return $this->createTokenPair($payload->sub, $fingerprint);
+        return $this->createTokenPair($payload->sub, $fingerprint, $payload->sid);
     }
 
     /**
-     * Revoke all tokens for user (logout)
+     * Revoke every access and refresh token belonging to the current session.
      *
-     * @param string $userUuid User identifier
+     * @param TokenPayload $payload Current authenticated access token
      * @param string $reason Reason for token revocation
      */
-    public function logout(string $userUuid, string $reason = 'user_logout'): void
+    public function logout(TokenPayload $payload, string $reason = 'user_logout'): void
     {
-        $this->tokenValidationRepository->revokeUserTokens($userUuid, $reason);
+        if (
+            !in_array($payload->getTokenType(), [TokenType::USER, TokenType::ADMIN], true)
+            || $payload->sid === null
+            || trim($payload->sid) === ''
+            || strlen($payload->sid) > 255
+        ) {
+            throw new UnauthorizedException('A user access token with a session ID is required');
+        }
+
+        $this->tokenValidationRepository->revokeSession(
+            $payload->sid,
+            $payload->sub,
+            $reason
+        );
     }
 
     /**
@@ -118,10 +139,11 @@ class AuthService
      * @param string $userUuid User identifier
      * @param string $fingerprint Device fingerprint from client
      */
-    private function createTokenPair(string $userUuid, string $fingerprint): TokenPair
+    private function createTokenPair(string $userUuid, string $fingerprint, ?string $sessionId = null): TokenPair
     {
         $now = time();
         $fingerprintHash = sha1($fingerprint);
+        $sessionId ??= $this->jtiGenerator->generate();
 
         // Check if user is admin
         $admin = $this->adminRepository->isUserAdmin($userUuid);
@@ -133,8 +155,9 @@ class AuthService
             $this->jtiGenerator->generate(),
             $now,
             $tokenType,
-            $fingerprintHash
-        ), $this->jwtConfig->secret);
+            $fingerprintHash,
+            $sessionId
+        ), $this->jwtConfig->privateKeyPath, $this->jwtConfig->privateKeyPassphrase);
 
         $refreshToken = Jwt::encode(new TokenPayload(
             $userUuid,
@@ -142,8 +165,9 @@ class AuthService
             $this->jtiGenerator->generate(),
             $now,
             TokenType::USER_REFRESH,
-            $fingerprintHash
-        ), $this->jwtConfig->secret);
+            $fingerprintHash,
+            $sessionId
+        ), $this->jwtConfig->privateKeyPath, $this->jwtConfig->privateKeyPassphrase);
 
         return new TokenPair(
             accessToken: $accessToken,

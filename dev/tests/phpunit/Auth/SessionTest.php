@@ -77,7 +77,8 @@ final class SessionTest extends TestCase
             exp: 1234567890,
             jti: 'jti-123',
             iat: 1234567800,
-            tokenType: 'workspace_member'
+            tokenType: 'workspace_member',
+            sid: 'session-1'
         );
 
         $session = Session::fromTokenPayload($payload);
@@ -87,6 +88,7 @@ final class SessionTest extends TestCase
         $this->assertSame(1234567800, $session->tokenIssuedAt);
         $this->assertSame(1234567890, $session->tokenExpiresAt);
         $this->assertSame('jti-123', $session->tokenId);
+        $this->assertSame('session-1', $session->sessionId);
     }
 
     public function testFromRequestWithTokenPayloadAttribute(): void
@@ -114,12 +116,14 @@ final class SessionTest extends TestCase
             ->withAttribute('token_type', 'workspace_member')
             ->withAttribute('token_issued_at', 1234567800)
             ->withAttribute('token_expires_at', 1234567890)
-            ->withAttribute('token_id', 'jti-123');
+            ->withAttribute('token_id', 'jti-123')
+            ->withAttribute('session_id', 'session-1');
 
         $session = Session::fromRequest($request);
 
         $this->assertSame('user-uuid-123', $session->userUuid);
         $this->assertSame('workspace_member', $session->tokenType);
+        $this->assertSame('session-1', $session->sessionId);
     }
 
     public function testFromRequestDefaultsToUserTokenType(): void

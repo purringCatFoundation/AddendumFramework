@@ -8,6 +8,7 @@ use PCF\Addendum\Http\RouteMiddleware;
 use PCF\Addendum\Http\RouteMiddlewareCollection;
 use PCF\Addendum\Http\Middleware\AccessControl;
 use PCF\Addendum\Http\Middleware\Auth;
+use PCF\Addendum\Http\Middleware\RefreshAuth;
 use PCF\Addendum\Http\Middleware\RateLimitMiddleware;
 use PCF\Addendum\Http\Middleware\RequestSignature;
 use PCF\Addendum\Http\Middleware\ValidateRequestAttribute;
@@ -17,6 +18,7 @@ class MiddlewareStackBuilder
 {
     private const array MIDDLEWARE_PRIORITY = [
         Auth::class => 10,
+        RefreshAuth::class => 10,
         RequestSignature::class => 20,
         RateLimitMiddleware::class => 30,
         ValidateRequestAttribute::class => 40,

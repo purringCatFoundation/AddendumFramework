@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace PCF\Addendum\Command;
 
 use PCF\Addendum\Auth\Jwt;
+use PCF\Addendum\Auth\ApplicationTokenValidator;
 use PCF\Addendum\Auth\TokenPayload;
 use PCF\Addendum\Auth\TokenType;
 use PCF\Addendum\Config\JwtConfig;
@@ -23,7 +24,8 @@ class GenerateApplicationTokenCommand extends Command
 {
     public function __construct(
         private readonly ApplicationTokenRepository $tokenRepository,
-        private readonly JwtConfig $jwtConfig
+        private readonly JwtConfig $jwtConfig,
+        private readonly ApplicationTokenValidator $applicationTokenValidator
     ) {
         parent::__construct();
     }
@@ -60,7 +62,7 @@ class GenerateApplicationTokenCommand extends Command
             jti: $jti,
             iat: $issuedAt,
             tokenType: TokenType::APPLICATION
-        ), $this->jwtConfig->secret);
+        ), $this->jwtConfig->privateKeyPath, $this->jwtConfig->privateKeyPassphrase);
 
         // Store token hash in database
         $tokenHash = hash('sha256', $token);
@@ -73,6 +75,7 @@ class GenerateApplicationTokenCommand extends Command
                 $ownerEmail,
                 $jti
             );
+            $this->applicationTokenValidator->remember($jti, $token);
 
             $io->success('Application token generated successfully!');
             $io->section('Token Details');

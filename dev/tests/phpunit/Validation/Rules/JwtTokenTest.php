@@ -4,18 +4,18 @@ declare(strict_types=1);
 namespace PCF\Addendum\Tests\Validation\Rules;
 
 use PCF\Addendum\Auth\Jwt;
+use PCF\Addendum\Auth\ApplicationTokenValidator;
 use PCF\Addendum\Auth\TokenPayload;
 use PCF\Addendum\Auth\TokenType;
 use PCF\Addendum\Auth\TokenValidationRepository;
 use PCF\Addendum\Config\JwtConfig;
+use PCF\Addendum\Tests\Support\JwtKeyPair;
 use PCF\Addendum\Validation\Rules\JwtToken;
 use PCF\Addendum\Validation\Rules\JwtTokenValidator;
 use PHPUnit\Framework\TestCase;
 
 final class JwtTokenTest extends TestCase
 {
-    private const string SECRET = '0123456789abcdef0123456789abcdef';
-
     public function testConstraintStoresRequiredTokenType(): void
     {
         $constraint = new JwtToken(TokenType::USER_REFRESH);
@@ -48,7 +48,7 @@ final class JwtTokenTest extends TestCase
     public function testValidatorAcceptsValidNonRevokedToken(): void
     {
         $repository = $this->createMock(TokenValidationRepository::class);
-        $repository->expects(self::once())->method('isTokenValid')->with('user-1', self::isType('int'))->willReturn(true);
+        $repository->expects(self::once())->method('isTokenValid')->with(TokenType::USER, 'user-1', 'jti-1', self::isInt(), 'session-1')->willReturn(true);
         $validator = $this->validator($repository);
 
         self::assertNull($validator->validate($this->jwt(TokenType::USER)));
@@ -81,22 +81,28 @@ final class JwtTokenTest extends TestCase
         ?TokenValidationRepository $repository = null,
         string $requiredTokenType = TokenType::USER
     ): JwtTokenValidator {
+        $keyPair = JwtKeyPair::shared();
+
         return new JwtTokenValidator(
-            new JwtConfig(self::SECRET, 7200, 1209600),
+            new JwtConfig($keyPair->privateKeyPath, $keyPair->publicKeyPath, $keyPair->privateKeyPassphrase, 7200, 1209600),
             $repository ?? $this->createMock(TokenValidationRepository::class),
+            $this->createMock(ApplicationTokenValidator::class),
             $requiredTokenType
         );
     }
 
     private function jwt(string $tokenType): string
     {
+        $keyPair = JwtKeyPair::shared();
+
         return Jwt::encode(new TokenPayload(
             sub: 'user-1',
             exp: time() + 3600,
             jti: 'jti-1',
             iat: time(),
             tokenType: $tokenType,
-            fingerprintHash: 'fingerprint-hash'
-        ), self::SECRET);
+            fingerprintHash: 'fingerprint-hash',
+            sid: 'session-1'
+        ), $keyPair->privateKeyPath, $keyPair->privateKeyPassphrase);
     }
 }

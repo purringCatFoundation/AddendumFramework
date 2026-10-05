@@ -30,15 +30,18 @@ final class TokenValidationRepositoryTest extends TestCase
         $this->mockPdo
             ->expects($this->once())
             ->method('prepare')
-            ->with('SELECT is_token_valid(:user_uuid::uuid, to_timestamp(:issued_at)::timestamp)')
+            ->with('SELECT is_token_valid(:token_type, :subject, :jti, to_timestamp(:issued_at)::timestamp, :sid)')
             ->willReturn($this->mockStatement);
 
         $this->mockStatement
             ->expects($this->once())
             ->method('execute')
             ->with([
-                'user_uuid' => $userUuid,
-                'issued_at' => $issuedAt
+                'token_type' => 'user',
+                'subject' => $userUuid,
+                'jti' => 'jti-1',
+                'issued_at' => $issuedAt,
+                'sid' => 'session-1'
             ]);
 
         $this->mockStatement
@@ -46,7 +49,7 @@ final class TokenValidationRepositoryTest extends TestCase
             ->method('fetchColumn')
             ->willReturn(true);
 
-        $result = $this->repository->isTokenValid($userUuid, $issuedAt);
+        $result = $this->repository->isTokenValid('user', $userUuid, 'jti-1', $issuedAt, 'session-1');
 
         $this->assertTrue($result);
     }
@@ -59,15 +62,18 @@ final class TokenValidationRepositoryTest extends TestCase
         $this->mockPdo
             ->expects($this->once())
             ->method('prepare')
-            ->with('SELECT is_token_valid(:user_uuid::uuid, to_timestamp(:issued_at)::timestamp)')
+            ->with('SELECT is_token_valid(:token_type, :subject, :jti, to_timestamp(:issued_at)::timestamp, :sid)')
             ->willReturn($this->mockStatement);
 
         $this->mockStatement
             ->expects($this->once())
             ->method('execute')
             ->with([
-                'user_uuid' => $userUuid,
-                'issued_at' => $issuedAt
+                'token_type' => 'user',
+                'subject' => $userUuid,
+                'jti' => 'jti-1',
+                'issued_at' => $issuedAt,
+                'sid' => null
             ]);
 
         $this->mockStatement
@@ -75,7 +81,7 @@ final class TokenValidationRepositoryTest extends TestCase
             ->method('fetchColumn')
             ->willReturn(false);
 
-        $result = $this->repository->isTokenValid($userUuid, $issuedAt);
+        $result = $this->repository->isTokenValid('user', $userUuid, 'jti-1', $issuedAt);
 
         $this->assertFalse($result);
     }
@@ -89,7 +95,7 @@ final class TokenValidationRepositoryTest extends TestCase
         $this->mockPdo
             ->expects($this->once())
             ->method('prepare')
-            ->with('SELECT revoke_user_tokens(:user_uuid::uuid, :reason, :created_by::uuid)')
+            ->with('SELECT revoke_user_tokens(:user_uuid::uuid, :reason, :created_by::uuid, :token_type)')
             ->willReturn($this->mockStatement);
 
         $this->mockStatement
@@ -98,10 +104,59 @@ final class TokenValidationRepositoryTest extends TestCase
             ->with([
                 'user_uuid' => $userUuid,
                 'reason' => $reason,
-                'created_by' => $createdBy
+                'created_by' => $createdBy,
+                'token_type' => null
             ]);
 
         $this->repository->revokeUserTokens($userUuid, $reason, $createdBy);
+    }
+
+    public function testRevokeToken(): void
+    {
+        $this->mockPdo
+            ->expects($this->once())
+            ->method('prepare')
+            ->with('SELECT revoke_token(:jti, :token_type, :subject, to_timestamp(:issued_at)::timestamp, :reason, :created_by::uuid)')
+            ->willReturn($this->mockStatement);
+
+        $this->mockStatement
+            ->expects($this->once())
+            ->method('execute')
+            ->with([
+                'jti' => 'jti-1',
+                'token_type' => 'user',
+                'subject' => 'user-1',
+                'issued_at' => 1700000000,
+                'reason' => 'logout',
+                'created_by' => null
+            ]);
+
+        $this->repository->revokeToken('jti-1', 'user', 'user-1', 1700000000, 'logout');
+    }
+
+    public function testRevokeTokensBefore(): void
+    {
+        $before = new \DateTimeImmutable('2026-05-17 15:22:17');
+
+        $this->mockPdo
+            ->expects($this->once())
+            ->method('prepare')
+            ->with('SELECT revoke_tokens_before(:token_type, :subject, :jti, :revoked_before, :reason, :created_by::uuid)')
+            ->willReturn($this->mockStatement);
+
+        $this->mockStatement
+            ->expects($this->once())
+            ->method('execute')
+            ->with([
+                'token_type' => 'application',
+                'subject' => 'test-app',
+                'jti' => 'jti-1',
+                'revoked_before' => '2026-05-17 15:22:17',
+                'reason' => 'security',
+                'created_by' => null
+            ]);
+
+        $this->repository->revokeTokensBefore('application', 'test-app', $before, 'jti-1', 'security');
     }
 
     public function testRevokeUserTokensWithDefaults(): void
@@ -111,7 +166,7 @@ final class TokenValidationRepositoryTest extends TestCase
         $this->mockPdo
             ->expects($this->once())
             ->method('prepare')
-            ->with('SELECT revoke_user_tokens(:user_uuid::uuid, :reason, :created_by::uuid)')
+            ->with('SELECT revoke_user_tokens(:user_uuid::uuid, :reason, :created_by::uuid, :token_type)')
             ->willReturn($this->mockStatement);
 
         $this->mockStatement
@@ -120,7 +175,8 @@ final class TokenValidationRepositoryTest extends TestCase
             ->with([
                 'user_uuid' => $userUuid,
                 'reason' => 'user_logout',
-                'created_by' => null
+                'created_by' => null,
+                'token_type' => null
             ]);
 
         $this->repository->revokeUserTokens($userUuid);
@@ -134,7 +190,7 @@ final class TokenValidationRepositoryTest extends TestCase
         $this->mockPdo
             ->expects($this->once())
             ->method('prepare')
-            ->with('SELECT revoke_all_tokens(:reason, :created_by)')
+            ->with('SELECT revoke_all_tokens(:reason, :created_by, :token_type)')
             ->willReturn($this->mockStatement);
 
         $this->mockStatement
@@ -142,7 +198,8 @@ final class TokenValidationRepositoryTest extends TestCase
             ->method('execute')
             ->with([
                 'reason' => $reason,
-                'created_by' => $createdBy
+                'created_by' => $createdBy,
+                'token_type' => null
             ]);
 
         $this->repository->revokeAllTokens($reason, $createdBy);
@@ -153,7 +210,7 @@ final class TokenValidationRepositoryTest extends TestCase
         $this->mockPdo
             ->expects($this->once())
             ->method('prepare')
-            ->with('SELECT revoke_all_tokens(:reason, :created_by)')
+            ->with('SELECT revoke_all_tokens(:reason, :created_by, :token_type)')
             ->willReturn($this->mockStatement);
 
         $this->mockStatement
@@ -161,7 +218,8 @@ final class TokenValidationRepositoryTest extends TestCase
             ->method('execute')
             ->with([
                 'reason' => 'global_revocation',
-                'created_by' => null
+                'created_by' => null,
+                'token_type' => null
             ]);
 
         $this->repository->revokeAllTokens();

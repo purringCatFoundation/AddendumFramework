@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace PCF\Addendum\Command;
 
+use PCF\Addendum\Auth\ApplicationTokenValidatorFactory;
 use PCF\Addendum\Config\JwtConfigFactory;
 use PCF\Addendum\Config\SystemEnvironmentProvider;
 use PCF\Addendum\Repository\User\ApplicationTokenRepositoryFactory;
@@ -17,6 +18,10 @@ final class GenerateApplicationTokenCommandFactory
         $jwtConfigFactory = new JwtConfigFactory(new SystemEnvironmentProvider());
         $jwtConfig = $jwtConfigFactory->create();
 
-        return new GenerateApplicationTokenCommand($tokenRepository, $jwtConfig);
+        return new GenerateApplicationTokenCommand(
+            $tokenRepository,
+            $jwtConfig,
+            new ApplicationTokenValidatorFactory()->create()
+        );
     }
 }

@@ -2,22 +2,23 @@
 
 BEGIN;
 
-SELECT plan(16);
+SELECT plan(17);
 
 -- Test table existence
 SELECT has_table('token_revocations', 'token_revocations table should exist');
 
 -- Test token revocation functions
-SELECT has_function('is_token_valid', ARRAY['uuid', 'timestamp without time zone'], 'is_token_valid function should exist');
-SELECT has_function('revoke_user_tokens', ARRAY['uuid', 'character varying', 'uuid'], 'revoke_user_tokens function should exist');
-SELECT has_function('revoke_all_tokens', ARRAY['character varying', 'uuid'], 'revoke_all_tokens function should exist');
+SELECT has_function('is_token_valid', ARRAY['character varying', 'character varying', 'character varying', 'timestamp without time zone'], 'is_token_valid function should exist');
+SELECT has_function('revoke_user_tokens', ARRAY['uuid', 'character varying', 'uuid', 'character varying'], 'revoke_user_tokens function should exist');
+SELECT has_function('revoke_all_tokens', ARRAY['character varying', 'uuid', 'character varying'], 'revoke_all_tokens function should exist');
+SELECT has_function('revoke_tokens_before', ARRAY['character varying', 'character varying', 'character varying', 'timestamp without time zone', 'character varying', 'uuid'], 'revoke_tokens_before function should exist');
 
 -- Create test user for token tests
 INSERT INTO users (email, uuid) VALUES ('token_test@example.com', '123e4567-e89b-12d3-a456-426614174000');
 
 -- Test token validation without any revocations
 SELECT ok(
-    is_token_valid('123e4567-e89b-12d3-a456-426614174000', (NOW() - INTERVAL '1 hour')::TIMESTAMP),
+    is_token_valid('user', '123e4567-e89b-12d3-a456-426614174000', 'jti-1', (NOW() - INTERVAL '1 hour')::TIMESTAMP),
     'Token should be valid when no revocations exist'
 );
 
@@ -29,13 +30,13 @@ SELECT lives_ok(
 
 -- Test that older tokens are now invalid
 SELECT ok(
-    NOT is_token_valid('123e4567-e89b-12d3-a456-426614174000', (NOW() - INTERVAL '1 hour')::TIMESTAMP),
+    NOT is_token_valid('user', '123e4567-e89b-12d3-a456-426614174000', 'jti-1', (NOW() - INTERVAL '1 hour')::TIMESTAMP),
     'Token issued before revocation should be invalid'
 );
 
 -- Test that newer tokens are still valid
 SELECT ok(
-    is_token_valid('123e4567-e89b-12d3-a456-426614174000', (NOW() + INTERVAL '1 hour')::TIMESTAMP),
+    is_token_valid('user', '123e4567-e89b-12d3-a456-426614174000', 'jti-1', (NOW() + INTERVAL '1 hour')::TIMESTAMP),
     'Token issued after revocation should be valid'
 );
 
@@ -47,7 +48,7 @@ SELECT lives_ok(
 
 -- Test that tokens issued before global revocation are invalid
 SELECT ok(
-    NOT is_token_valid('123e4567-e89b-12d3-a456-426614174000', (NOW() - INTERVAL '30 minutes')::TIMESTAMP),
+    NOT is_token_valid('user', '123e4567-e89b-12d3-a456-426614174000', 'jti-1', (NOW() - INTERVAL '30 minutes')::TIMESTAMP),
     'Tokens issued before global revocation should be invalid'
 );
 

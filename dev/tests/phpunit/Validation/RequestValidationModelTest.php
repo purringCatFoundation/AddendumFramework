@@ -4,6 +4,8 @@ declare(strict_types=1);
 namespace PCF\Addendum\Tests\Validation;
 
 use PCF\Addendum\Attribute\ValidateRequest;
+use PCF\Addendum\Auth\ApplicationTokenValidator;
+use PCF\Addendum\Auth\ApplicationTokenValidatorFactory;
 use PCF\Addendum\Auth\TokenValidationRepository;
 use PCF\Addendum\Auth\TokenValidationRepositoryFactory;
 use PCF\Addendum\Config\JwtConfig;
@@ -18,6 +20,7 @@ use PCF\Addendum\Validation\Rules\JwtTokenValidator;
 use PCF\Addendum\Validation\Rules\JwtTokenValidatorProvider;
 use PCF\Addendum\Validation\Rules\Required;
 use PCF\Addendum\Validation\SelfValidatingConstraintProvider;
+use PCF\Addendum\Tests\Support\JwtKeyPair;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
 
@@ -63,16 +66,21 @@ final class RequestValidationModelTest extends TestCase
 
     public function testJwtTokenProviderCreatesRuntimeValidator(): void
     {
+        $keyPair = JwtKeyPair::shared();
         $configFactory = $this->createMock(JwtConfigFactory::class);
         $configFactory->expects(self::once())
             ->method('create')
-            ->willReturn(new JwtConfig('0123456789abcdef0123456789abcdef', 7200, 1209600));
+            ->willReturn(new JwtConfig($keyPair->privateKeyPath, $keyPair->publicKeyPath, $keyPair->privateKeyPassphrase, 7200, 1209600));
         $repositoryFactory = $this->createMock(TokenValidationRepositoryFactory::class);
         $repositoryFactory->expects(self::once())
             ->method('create')
             ->willReturn($this->createMock(TokenValidationRepository::class));
+        $applicationTokenValidatorFactory = $this->createMock(ApplicationTokenValidatorFactory::class);
+        $applicationTokenValidatorFactory->expects(self::once())
+            ->method('create')
+            ->willReturn($this->createMock(ApplicationTokenValidator::class));
 
-        $provider = new JwtTokenValidatorProvider($configFactory, $repositoryFactory);
+        $provider = new JwtTokenValidatorProvider($configFactory, $repositoryFactory, $applicationTokenValidatorFactory);
 
         self::assertTrue($provider->supports(new JwtToken()));
         self::assertInstanceOf(JwtTokenValidator::class, $provider->create(new JwtToken()));

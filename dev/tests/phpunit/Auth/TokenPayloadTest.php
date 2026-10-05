@@ -61,7 +61,7 @@ final class TokenPayloadTest extends TestCase
         $this->assertSame(1234567800, $json['iat']);
         $this->assertSame('user', $json['tokenType']);
         $this->assertSame('fingerprint-hash-789', $json['fingerprintHash']);
-        $this->assertSame('user', $json['type']);
+        $this->assertArrayNotHasKey('type', $json);
     }
 
     public function testJsonSerializeWithMinimalFields(): void

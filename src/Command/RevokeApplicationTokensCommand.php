@@ -4,7 +4,8 @@ declare(strict_types=1);
 namespace PCF\Addendum\Command;
 
 use DateTimeImmutable;
-use PCF\Addendum\Repository\User\ApplicationTokenRepository;
+use PCF\Addendum\Auth\TokenType;
+use PCF\Addendum\Auth\TokenValidationRepository;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
@@ -14,12 +15,12 @@ use Symfony\Component\Console\Style\SymfonyStyle;
 
 #[AsCommand(
     name: 'app:revoke-tokens',
-    description: 'Revoke application tokens by various criteria'
+    description: 'Create token revocation rules by type, subject, JTI and issue timestamp cutoff'
 )]
 class RevokeApplicationTokensCommand extends Command
 {
     public function __construct(
-        private readonly ApplicationTokenRepository $tokenRepository
+        private readonly TokenValidationRepository $tokenValidationRepository
     ) {
         parent::__construct();
     }
@@ -27,124 +28,67 @@ class RevokeApplicationTokensCommand extends Command
     protected function configure(): void
     {
         $this
-            ->addOption('application', null, InputOption::VALUE_REQUIRED, 'Revoke tokens for specific application name')
-            ->addOption('owner', null, InputOption::VALUE_REQUIRED, 'Revoke tokens for specific owner email')
-            ->addOption('after', null, InputOption::VALUE_REQUIRED, 'Revoke tokens created after date (YYYY-MM-DD)')
-            ->addOption('reason', null, InputOption::VALUE_REQUIRED, 'Reason for revocation')
-            ->addOption('list', null, InputOption::VALUE_NONE, 'List active tokens instead of revoking')
-            ->addOption('stats', null, InputOption::VALUE_NONE, 'Show token statistics');
+            ->addOption('type', null, InputOption::VALUE_REQUIRED, 'Token type to revoke', TokenType::APPLICATION)
+            ->addOption('uuid', null, InputOption::VALUE_REQUIRED, 'JWT subject to revoke, e.g. user UUID or application name')
+            ->addOption('jti', null, InputOption::VALUE_REQUIRED, 'Revoke one specific JWT ID')
+            ->addOption('before', null, InputOption::VALUE_REQUIRED, 'Revoke tokens issued at or before this timestamp')
+            ->addOption('reason', null, InputOption::VALUE_REQUIRED, 'Reason for revocation', 'application_token_revocation');
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
         $io = new SymfonyStyle($input, $output);
+        $tokenType = trim((string) $input->getOption('type'));
+        $subject = $input->getOption('uuid');
+        $jti = $input->getOption('jti');
+        $beforeStr = $input->getOption('before');
+        $reason = (string) $input->getOption('reason');
 
-        // Show statistics
-        if ($input->getOption('stats')) {
-            return $this->showStatistics($io);
-        }
-
-        // List active tokens
-        if ($input->getOption('list')) {
-            return $this->listTokens($io);
-        }
-
-        // Revoke tokens
-        $application = $input->getOption('application');
-        $owner = $input->getOption('owner');
-        $afterStr = $input->getOption('after');
-        $reason = $input->getOption('reason');
-
-        if (!$application && !$owner && !$afterStr) {
-            $io->error('You must specify at least one filter: --application, --owner, or --after');
+        if ($tokenType === '') {
+            $io->error('You must specify --type');
             return Command::FAILURE;
         }
 
-        $after = null;
-        if ($afterStr) {
-            try {
-                $after = new DateTimeImmutable($afterStr);
-            } catch (\Exception $e) {
-                $io->error('Invalid date format. Use YYYY-MM-DD');
-                return Command::FAILURE;
-            }
+        if (!is_string($beforeStr) || trim($beforeStr) === '') {
+            $io->error('You must specify --before');
+            return Command::FAILURE;
         }
 
-        $revokedCount = 0;
-
-        if ($application && !$owner && !$after) {
-            $revokedCount = $this->tokenRepository->revokeByApplicationName($application, null, $reason);
-        } elseif ($owner && !$application && !$after) {
-            $revokedCount = $this->tokenRepository->revokeByOwner($owner, null, $reason);
-        } elseif ($after) {
-            $revokedCount = $this->tokenRepository->revokeByDate($after, $application, $owner, $reason);
-        } else {
-            // Combined filters - use date-based with additional filters
-            if ($after) {
-                $revokedCount = $this->tokenRepository->revokeByDate($after, $application, $owner, $reason);
-            } elseif ($application) {
-                $revokedCount = $this->tokenRepository->revokeByApplicationName($application, null, $reason);
-            }
+        $before = $this->parseBefore($beforeStr);
+        if ($before === null) {
+            $io->error('Invalid date format. Use YYYY-MM-DD HH:MM:SS or Unix timestamp');
+            return Command::FAILURE;
         }
 
-        if ($revokedCount > 0) {
-            $io->success("Revoked $revokedCount token(s)");
-        } else {
-            $io->warning('No tokens matched the criteria');
-        }
+        $this->tokenValidationRepository->revokeTokensBefore(
+            tokenType: $tokenType,
+            subject: is_string($subject) && trim($subject) !== '' ? $subject : null,
+            revokedBefore: $before,
+            jti: is_string($jti) && trim($jti) !== '' ? $jti : null,
+            reason: $reason !== '' ? $reason : 'application_token_revocation'
+        );
+
+        $io->success('Token revocation rule created');
 
         return Command::SUCCESS;
     }
 
-    private function showStatistics(SymfonyStyle $io): int
+    private function parseBefore(string $value): ?DateTimeImmutable
     {
-        $stats = $this->tokenRepository->getStatistics();
+        $value = trim($value);
 
-        $io->section('Application Token Statistics');
-        $io->table(
-            ['Metric', 'Value'],
-            [
-                ['Total Tokens', $stats->totalTokens],
-                ['Active Tokens', $stats->activeTokens],
-                ['Revoked Tokens', $stats->revokedTokens],
-                ['Unique Applications', $stats->uniqueApplications],
-                ['Unique Owners', $stats->uniqueOwners],
-                ['Used Last 24h', $stats->tokensUsedLast24Hours],
-                ['Used Last 7d', $stats->tokensUsedLast7Days],
-            ]
-        );
-
-        return Command::SUCCESS;
-    }
-
-    private function listTokens(SymfonyStyle $io): int
-    {
-        $tokens = $this->tokenRepository->listActiveTokens();
-
-        if ($tokens->isEmpty()) {
-            $io->info('No active application tokens found');
-            return Command::SUCCESS;
+        if ($value === '') {
+            return null;
         }
 
-        $io->section('Active Application Tokens');
+        try {
+            if (ctype_digit($value)) {
+                return new DateTimeImmutable('@' . $value);
+            }
 
-        $rows = [];
-        foreach ($tokens as $token) {
-            $rows[] = [
-                $token->uuid,
-                $token->applicationName,
-                $token->ownerName,
-                $token->ownerEmail,
-                $token->createdAt->format('Y-m-d H:i'),
-                $token->lastUsedAt?->format('Y-m-d H:i') ?? 'Never',
-            ];
+            return new DateTimeImmutable($value);
+        } catch (\Exception) {
+            return null;
         }
-
-        $io->table(
-            ['UUID', 'Application', 'Owner', 'Email', 'Created', 'Last Used'],
-            $rows
-        );
-
-        return Command::SUCCESS;
     }
 }

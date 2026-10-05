@@ -7,6 +7,7 @@ use PCF\Addendum\Action\ActionInterface;
 use PCF\Addendum\Attribute\Middleware;
 use PCF\Addendum\Attribute\Route;
 use PCF\Addendum\Auth\AuthService;
+use PCF\Addendum\Auth\TokenPayload;
 use PCF\Addendum\Http\Request;
 use PCF\Addendum\Http\Middleware\Auth;
 use PCF\Addendum\Response\NoContentResponse;
@@ -30,9 +31,12 @@ class DeleteSessionAction implements ActionInterface
 
     public function __invoke(Request $request): NoContentResponse
     {
-        $userUuid = $request->get('user_uuid');
+        $payload = $request->get('token_payload');
+        if (!$payload instanceof TokenPayload) {
+            throw new \RuntimeException('Authenticated token payload is missing');
+        }
 
-        $this->authService->logout($userUuid, 'user_logout');
+        $this->authService->logout($payload, 'user_logout');
 
         return new NoContentResponse();
     }

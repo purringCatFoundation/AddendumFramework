@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace PCF\Addendum\Validation\Rules;
 
 use InvalidArgumentException;
+use PCF\Addendum\Auth\ApplicationTokenValidatorFactory;
 use PCF\Addendum\Auth\TokenValidationRepositoryFactory;
 use PCF\Addendum\Config\JwtConfigFactory;
 use PCF\Addendum\Validation\RequestValidationConstraintInterface;
@@ -14,7 +15,8 @@ final readonly class JwtTokenValidatorProvider implements RequestValidatorProvid
 {
     public function __construct(
         private JwtConfigFactory $configFactory,
-        private TokenValidationRepositoryFactory $tokenValidationRepositoryFactory
+        private TokenValidationRepositoryFactory $tokenValidationRepositoryFactory,
+        private ?ApplicationTokenValidatorFactory $applicationTokenValidatorFactory = null
     ) {
     }
 
@@ -32,6 +34,7 @@ final readonly class JwtTokenValidatorProvider implements RequestValidatorProvid
         return new JwtTokenValidator(
             $this->configFactory->create(),
             $this->tokenValidationRepositoryFactory->create(),
+            ($this->applicationTokenValidatorFactory ?? new ApplicationTokenValidatorFactory())->create(),
             $constraint->requiredTokenType()
         );
     }

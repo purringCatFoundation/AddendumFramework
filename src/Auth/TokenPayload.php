@@ -13,10 +13,12 @@ class TokenPayload implements JsonSerializable
         public private(set) string $jti,
         public private(set) int $iat,
         public private(set) ?string $tokenType = null,
-        public private(set) ?string $fingerprintHash = null // SHA1 hash of device fingerprint
+        public private(set) ?string $fingerprintHash = null, // SHA1 hash of device fingerprint
+        public private(set) ?string $sid = null
     ) {
     }
 
+    /** @return array<string, string|int> */
     public function jsonSerialize(): array
     {
         $data = [
@@ -31,12 +33,13 @@ class TokenPayload implements JsonSerializable
         if ($this->fingerprintHash !== null) {
             $data['fingerprintHash'] = $this->fingerprintHash;
         }
-        if ($this->tokenType !== null) {
-            $data['type'] = $this->tokenType;
+        if ($this->sid !== null) {
+            $data['sid'] = $this->sid;
         }
         return $data;
     }
 
+    /** @param array<string, mixed> $data */
     public static function fromArray(array $data): self
     {
         return new self(
@@ -45,7 +48,8 @@ class TokenPayload implements JsonSerializable
             (string) ($data['jti']),
             (int) ($data['iat']),
             isset($data['tokenType']) && $data['tokenType'] !== '' ? (string) $data['tokenType'] : null,
-            isset($data['fingerprintHash']) ? (string) $data['fingerprintHash'] : null
+            isset($data['fingerprintHash']) ? (string) $data['fingerprintHash'] : null,
+            isset($data['sid']) ? (string) $data['sid'] : null
         );
     }
 

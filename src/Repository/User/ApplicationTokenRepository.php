@@ -66,6 +66,18 @@ final class ApplicationTokenRepository
         return ApplicationToken::fromDatabaseRow($row);
     }
 
+    public function findHashByJti(string $jti): ?string
+    {
+        $stmt = $this->db->prepare(
+            'SELECT token_hash FROM application_tokens WHERE jti = :jti'
+        );
+
+        $stmt->execute([':jti' => $jti]);
+        $hash = $stmt->fetchColumn();
+
+        return is_string($hash) && $hash !== '' ? $hash : null;
+    }
+
     public function getTokenByUuid(string $uuid): ?ApplicationToken
     {
         $stmt = $this->db->prepare(

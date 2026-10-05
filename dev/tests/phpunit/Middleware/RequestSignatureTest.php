@@ -13,14 +13,14 @@ use Psr\Http\Server\RequestHandlerInterface;
 
 final class RequestSignatureTest extends TestCase
 {
-    private const JWT_SECRET = 'test-jwt-secret-for-testing';
+    private const REQUEST_SIGNATURE_SECRET = 'test-request-signature-secret-for-testing';
 
     private RequestSignature $middleware;
     private RequestHandlerInterface $handler;
 
     protected function setUp(): void
     {
-        $this->middleware = new RequestSignature(self::JWT_SECRET, new NoneRequestReplayCache());
+        $this->middleware = new RequestSignature(self::REQUEST_SIGNATURE_SECRET, new NoneRequestReplayCache());
         $this->handler = $this->createMock(RequestHandlerInterface::class);
     }
 
@@ -170,7 +170,7 @@ final class RequestSignatureTest extends TestCase
         $path = '/protected';
         $bodyContent = '';
 
-        $signingKey = hash_hmac('sha256', $jti . $fingerprintHash, self::JWT_SECRET);
+        $signingKey = hash_hmac('sha256', $jti . $fingerprintHash, self::REQUEST_SIGNATURE_SECRET);
         $data = $timestamp . $fingerprint . $method . $path . $bodyContent;
         $signature = hash_hmac('sha256', $data, $signingKey);
 
@@ -203,7 +203,7 @@ final class RequestSignatureTest extends TestCase
 
         // Calculate signature using current fingerprint and correct signing key for the stored fingerprint
         // The signature itself will be valid, but fingerprint hash won't match
-        $signingKey = hash_hmac('sha256', $jti . $storedFingerprintHash, self::JWT_SECRET);
+        $signingKey = hash_hmac('sha256', $jti . $storedFingerprintHash, self::REQUEST_SIGNATURE_SECRET);
         $data = $timestamp . $fingerprint . $method . $path . '';
         $signature = hash_hmac('sha256', $data, $signingKey);
 
@@ -298,7 +298,7 @@ final class RequestSignatureTest extends TestCase
 
     public function testReplayCacheRequiresNonceHeader(): void
     {
-        $middleware = new RequestSignature(self::JWT_SECRET, new RequestSignatureReplayCache());
+        $middleware = new RequestSignature(self::REQUEST_SIGNATURE_SECRET, new RequestSignatureReplayCache());
         $request = (new ServerRequest('GET', '/test'))
             ->withHeader('X-Request-Timestamp', (string) time())
             ->withHeader('X-Request-Fingerprint', 'fingerprint')
@@ -317,7 +317,7 @@ final class RequestSignatureTest extends TestCase
         $fingerprint = 'fingerprint';
         $nonce = 'nonce-1';
         $signature = $this->publicSignature($timestamp, $fingerprint, 'GET', '/test', $nonce);
-        $middleware = new RequestSignature(self::JWT_SECRET, new RequestSignatureReplayCache(hasReplay: true));
+        $middleware = new RequestSignature(self::REQUEST_SIGNATURE_SECRET, new RequestSignatureReplayCache(hasReplay: true));
         $request = (new ServerRequest('GET', '/test'))
             ->withHeader('X-Request-Timestamp', (string) $timestamp)
             ->withHeader('X-Request-Fingerprint', $fingerprint)
@@ -338,7 +338,7 @@ final class RequestSignatureTest extends TestCase
         $nonce = 'nonce-1';
         $signature = $this->publicSignature($timestamp, $fingerprint, 'GET', '/test', $nonce);
         $replayCache = new RequestSignatureReplayCache();
-        $middleware = new RequestSignature(self::JWT_SECRET, $replayCache);
+        $middleware = new RequestSignature(self::REQUEST_SIGNATURE_SECRET, $replayCache);
         $request = (new ServerRequest('GET', '/test'))
             ->withHeader('X-Request-Timestamp', (string) $timestamp)
             ->withHeader('X-Request-Fingerprint', $fingerprint)
@@ -360,7 +360,7 @@ final class RequestSignatureTest extends TestCase
         $fingerprint = 'fingerprint';
         $nonce = 'nonce-1';
         $signature = $this->publicSignature($timestamp, $fingerprint, 'GET', '/test?sort=asc', $nonce);
-        $middleware = new RequestSignature(self::JWT_SECRET, new RequestSignatureReplayCache());
+        $middleware = new RequestSignature(self::REQUEST_SIGNATURE_SECRET, new RequestSignatureReplayCache());
         $request = (new ServerRequest('GET', '/test?sort=asc'))
             ->withHeader('X-Request-Timestamp', (string) $timestamp)
             ->withHeader('X-Request-Fingerprint', $fingerprint)

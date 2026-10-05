@@ -19,7 +19,8 @@ final class Session
         public readonly string $tokenType,
         public readonly ?int $tokenIssuedAt = null,
         public readonly ?int $tokenExpiresAt = null,
-        public readonly ?string $tokenId = null
+        public readonly ?string $tokenId = null,
+        public readonly ?string $sessionId = null
     ) {
     }
 
@@ -33,7 +34,8 @@ final class Session
             tokenType: $payload->getTokenType(),
             tokenIssuedAt: $payload->iat,
             tokenExpiresAt: $payload->exp,
-            tokenId: $payload->jti
+            tokenId: $payload->jti,
+            sessionId: $payload->sid
         );
     }
 
@@ -63,7 +65,8 @@ final class Session
             tokenType: $tokenType,
             tokenIssuedAt: $request->getAttribute('token_issued_at'),
             tokenExpiresAt: $request->getAttribute('token_expires_at'),
-            tokenId: $request->getAttribute('token_id')
+            tokenId: $request->getAttribute('token_id'),
+            sessionId: $request->getAttribute('session_id')
         );
     }
 
@@ -103,6 +106,7 @@ final class Session
     /**
      * Get session information as array
      */
+    /** @return array<string, string|int|bool|null> */
     public function toArray(): array
     {
         return [
@@ -111,6 +115,7 @@ final class Session
             'tokenIssuedAt' => $this->tokenIssuedAt,
             'tokenExpiresAt' => $this->tokenExpiresAt,
             'tokenId' => $this->tokenId,
+            'sessionId' => $this->sessionId,
             'hasElevatedPrivileges' => $this->hasElevatedPrivileges(),
             'isAdmin' => $this->isAdmin(),
             'isApplication' => $this->isApplication(),

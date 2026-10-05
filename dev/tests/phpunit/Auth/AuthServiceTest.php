@@ -17,6 +17,7 @@ use PCF\Addendum\Config\JwtConfig;
 use PCF\Addendum\Exception\InvalidCredentialsException;
 use PCF\Addendum\Exception\UnauthorizedException;
 use PCF\Addendum\Repository\User\AdminRepositoryInterface;
+use PCF\Addendum\Tests\Support\JwtKeyPair;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 
@@ -35,7 +36,14 @@ final class AuthServiceTest extends TestCase
         $this->mockTokenValidationRepository = $this->createMock(TokenValidationRepository::class);
         $this->mockAdminRepository = $this->createMock(AdminRepositoryInterface::class);
         $this->mockJtiGenerator = $this->createMock(JtiGenerator::class);
-        $this->jwtConfig = new JwtConfig('test-secret-key-32-bytes-long-test', 3600, 86400);
+        $keyPair = JwtKeyPair::shared();
+        $this->jwtConfig = new JwtConfig(
+            $keyPair->privateKeyPath,
+            $keyPair->publicKeyPath,
+            $keyPair->privateKeyPassphrase,
+            3600,
+            86400
+        );
 
         $this->mockJtiGenerator
             ->method('generate')
@@ -182,14 +190,14 @@ final class AuthServiceTest extends TestCase
             'jti-123',
             $now,
             TokenType::USER_REFRESH,
-            null,
-            $fingerprintHash
-        ), $this->jwtConfig->secret);
+            $fingerprintHash,
+            'session-1'
+        ), $this->jwtConfig->privateKeyPath, $this->jwtConfig->privateKeyPassphrase);
 
         $this->mockTokenValidationRepository
             ->expects($this->once())
             ->method('isTokenValid')
-            ->with($userUuid, $now)
+            ->with(TokenType::USER_REFRESH, $userUuid, 'jti-123', $now, 'session-1')
             ->willReturn(true);
 
         $this->mockAdminRepository
@@ -217,8 +225,9 @@ final class AuthServiceTest extends TestCase
             $now + 3600,
             'jti-123',
             $now,
-            TokenType::USER // Wrong type - should be USER_REFRESH
-        ), $this->jwtConfig->secret);
+            TokenType::USER, // Wrong type - should be USER_REFRESH
+            sid: 'session-1'
+        ), $this->jwtConfig->privateKeyPath, $this->jwtConfig->privateKeyPassphrase);
 
         $this->expectException(UnauthorizedException::class);
         $this->expectExceptionMessage('Invalid token type');
@@ -239,14 +248,14 @@ final class AuthServiceTest extends TestCase
             'jti-123',
             $now,
             TokenType::USER_REFRESH,
-            null,
-            $fingerprintHash
-        ), $this->jwtConfig->secret);
+            $fingerprintHash,
+            'session-1'
+        ), $this->jwtConfig->privateKeyPath, $this->jwtConfig->privateKeyPassphrase);
 
         $this->mockTokenValidationRepository
             ->expects($this->once())
             ->method('isTokenValid')
-            ->with($userUuid, $now)
+            ->with(TokenType::USER_REFRESH, $userUuid, 'jti-123', $now, 'session-1')
             ->willReturn(false);
 
         $this->expectException(UnauthorizedException::class);
@@ -257,15 +266,22 @@ final class AuthServiceTest extends TestCase
 
     public function testLogout(): void
     {
-        $userUuid = '123e4567-e89b-12d3-a456-426614174000';
         $reason = 'user_logout';
+        $payload = new TokenPayload(
+            sub: '123e4567-e89b-12d3-a456-426614174000',
+            exp: 1700003600,
+            jti: 'jti-123',
+            iat: 1700000000,
+            tokenType: TokenType::USER,
+            sid: 'session-1'
+        );
 
         $this->mockTokenValidationRepository
             ->expects($this->once())
-            ->method('revokeUserTokens')
-            ->with($userUuid, $reason);
+            ->method('revokeSession')
+            ->with('session-1', $payload->sub, $reason);
 
-        $this->authService->logout($userUuid, $reason);
+        $this->authService->logout($payload, $reason);
     }
 
     public function testLogoutFromAllDevices(): void

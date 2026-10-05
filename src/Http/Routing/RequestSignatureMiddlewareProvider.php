@@ -6,6 +6,7 @@ namespace PCF\Addendum\Http\Routing;
 use PCF\Addendum\Attribute\AccessControl as AccessControlAttribute;
 use PCF\Addendum\Attribute\Middleware as MiddlewareAttribute;
 use PCF\Addendum\Http\Middleware\Auth;
+use PCF\Addendum\Http\Middleware\RefreshAuth;
 use PCF\Addendum\Http\Middleware\RequestSignature;
 use PCF\Addendum\Http\MiddlewareOptions;
 use PCF\Addendum\Http\RouteMiddlewareCollection;
@@ -43,7 +44,7 @@ class RequestSignatureMiddlewareProvider implements MiddlewareProviderInterface
         }
 
         foreach ($actionClass->getAttributes(MiddlewareAttribute::class) as $middlewareAttribute) {
-            if ($middlewareAttribute->newInstance()->middlewareClass === Auth::class) {
+            if (in_array($middlewareAttribute->newInstance()->middlewareClass, [Auth::class, RefreshAuth::class], true)) {
                 return true;
             }
         }

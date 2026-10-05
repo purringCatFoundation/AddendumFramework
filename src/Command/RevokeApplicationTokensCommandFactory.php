@@ -3,15 +3,15 @@ declare(strict_types=1);
 
 namespace PCF\Addendum\Command;
 
-use PCF\Addendum\Repository\User\ApplicationTokenRepositoryFactory;
+use PCF\Addendum\Auth\TokenValidationRepositoryFactory;
+use PCF\Addendum\Database\DbConnectionFactory;
 
 final class RevokeApplicationTokensCommandFactory
 {
     public function create(): RevokeApplicationTokensCommand
     {
-        $tokenRepositoryFactory = new ApplicationTokenRepositoryFactory();
-        $tokenRepository = $tokenRepositoryFactory->create();
-
-        return new RevokeApplicationTokensCommand($tokenRepository);
+        return new RevokeApplicationTokensCommand(
+            new TokenValidationRepositoryFactory(new DbConnectionFactory())->create()
+        );
     }
 }

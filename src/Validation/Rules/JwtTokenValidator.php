@@ -6,7 +6,9 @@ namespace PCF\Addendum\Validation\Rules;
 use Ds\Map;
 use InvalidArgumentException;
 use PCF\Addendum\Auth\Jwt;
+use PCF\Addendum\Auth\ApplicationTokenValidator;
 use PCF\Addendum\Auth\TokenValidationRepository;
+use PCF\Addendum\Auth\TokenType;
 use PCF\Addendum\Config\JwtConfig;
 use PCF\Addendum\Validation\AbstractRequestValidator;
 use PCF\Addendum\Validation\RequestAttributeProviderValidatorInterface;
@@ -17,6 +19,7 @@ final class JwtTokenValidator extends AbstractRequestValidator implements Reques
     public function __construct(
         private readonly JwtConfig $config,
         private readonly TokenValidationRepository $tokenValidationRepository,
+        private readonly ApplicationTokenValidator $applicationTokenValidator,
         private readonly string $requiredTokenType
     ) {
     }
@@ -33,13 +36,25 @@ final class JwtTokenValidator extends AbstractRequestValidator implements Reques
         }
 
         try {
-            $payload = Jwt::decode($token, $this->config->secret);
+            $payload = Jwt::decode($token, $this->config->publicKeyPath);
 
             if ($payload->tokenType !== $this->requiredTokenType) {
                 return "Invalid token type, expected '{$this->requiredTokenType}'";
             }
 
-            if (!$this->tokenValidationRepository->isTokenValid($payload->sub, $payload->iat)) {
+            if ($payload->getTokenType() === TokenType::APPLICATION && !$this->applicationTokenValidator->isKnown($payload->jti, $token)) {
+                return 'Invalid token: Unknown application token';
+            }
+
+            if (
+                !$this->tokenValidationRepository->isTokenValid(
+                    $payload->getTokenType(),
+                    $payload->sub,
+                    $payload->jti,
+                    $payload->iat,
+                    $payload->sid
+                )
+            ) {
                 return 'Token has been revoked';
             }
         } catch (InvalidArgumentException $exception) {

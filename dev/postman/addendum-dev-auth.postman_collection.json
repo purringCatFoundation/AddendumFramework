@@ -1,0 +1,148 @@
+{
+  "info": {
+    "name": "Addendum Dev Auth",
+    "description": "Dev requests for validating RS256 JWT authorization and Addendum request signatures. Set access_token to a valid access/application token and request_signature_secret to REQUEST_SIGNATURE_SECRET.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Inspect Authorized Token",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "// Keep in sync with dev/js/sign-request.js.",
+              "(function signAddendumRequest() {",
+              "    function readVariable(name, fallback) {",
+              "        var scopes = [pm.variables, pm.environment, pm.collectionVariables, pm.globals];",
+              "        for (var i = 0; i < scopes.length; i++) {",
+              "            var scope = scopes[i];",
+              "            if (!scope || typeof scope.get !== 'function') { continue; }",
+              "            var value = scope.get(name);",
+              "            if (value !== undefined && value !== null && String(value) !== '') { return String(value); }",
+              "        }",
+              "        return fallback;",
+              "    }",
+              "",
+              "    function requestTarget() {",
+              "        if (pm.request.url && typeof pm.request.url.getPathWithQuery === 'function') {",
+              "            var target = pm.request.url.getPathWithQuery();",
+              "            return target.charAt(0) === '/' ? target : '/' + target;",
+              "        }",
+              "        var path = '/';",
+              "        if (pm.request.url && Array.isArray(pm.request.url.path)) { path += pm.request.url.path.join('/'); }",
+              "        var query = '';",
+              "        if (pm.request.url && pm.request.url.query && typeof pm.request.url.query.all === 'function') {",
+              "            query = pm.request.url.query.all().filter(function (param) { return !param.disabled; }).map(function (param) { return encodeURIComponent(param.key) + '=' + encodeURIComponent(param.value || ''); }).join('&');",
+              "        }",
+              "        return query !== '' ? path + '?' + query : path;",
+              "    }",
+              "",
+              "    function requestBody() {",
+              "        if (!pm.request.body) { return ''; }",
+              "        if (pm.request.body.mode === 'raw') { return pm.request.body.raw || ''; }",
+              "        return '';",
+              "    }",
+              "",
+              "    function decodeJwtPayload(token) {",
+              "        var parts = token.split('.');",
+              "        if (parts.length !== 3) { throw new Error('access_token is not a compact JWT'); }",
+              "        var base64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');",
+              "        while (base64.length % 4 !== 0) { base64 += '='; }",
+              "        return JSON.parse(CryptoJS.enc.Utf8.stringify(CryptoJS.enc.Base64.parse(base64)));",
+              "    }",
+              "",
+              "    function hmacSha256(data, key) { return CryptoJS.HmacSHA256(data, key).toString(CryptoJS.enc.Hex); }",
+              "",
+              "    var accessToken = readVariable('access_token', '');",
+              "    var fingerprint = readVariable('fingerprint', 'postman-dev-fingerprint');",
+              "    var requestSignatureSecret = readVariable('request_signature_secret', '');",
+              "",
+              "    if (accessToken === '') { throw new Error('Missing Postman variable: access_token'); }",
+              "    if (requestSignatureSecret.length < 32) { throw new Error('Missing or too short Postman variable: request_signature_secret'); }",
+              "",
+              "    var payload = decodeJwtPayload(accessToken);",
+              "    if (!payload.jti) { throw new Error('JWT payload does not contain jti'); }",
+              "",
+              "    var timestamp = Math.floor(Date.now() / 1000).toString();",
+              "    var nonce = CryptoJS.lib.WordArray.random(16).toString(CryptoJS.enc.Hex);",
+              "    var fingerprintHash = payload.fingerprintHash || '';",
+              "    var signingKey = hmacSha256(String(payload.jti) + String(fingerprintHash), requestSignatureSecret);",
+              "    var data = timestamp + fingerprint + pm.request.method + requestTarget() + nonce + requestBody();",
+              "    var signature = hmacSha256(data, signingKey);",
+              "",
+              "    pm.request.headers.upsert({ key: 'Authorization', value: 'Bearer ' + accessToken });",
+              "    pm.request.headers.upsert({ key: 'X-Request-Timestamp', value: timestamp });",
+              "    pm.request.headers.upsert({ key: 'X-Request-Fingerprint', value: fingerprint });",
+              "    pm.request.headers.upsert({ key: 'X-Request-Nonce', value: nonce });",
+              "    pm.request.headers.upsert({ key: 'X-Request-Signature', value: signature });",
+              "",
+              "    pm.variables.set('jwt_jti', String(payload.jti));",
+              "    pm.variables.set('jwt_fingerprint_hash', String(fingerprintHash));",
+              "    pm.variables.set('last_request_signature', signature);",
+              "    pm.variables.set('last_request_nonce', nonce);",
+              "    pm.variables.set('last_request_timestamp', timestamp);",
+              "}());"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('request is authorized', function () {",
+              "    pm.response.to.have.status(200);",
+              "    var body = pm.response.json();",
+              "    pm.expect(body.authorized).to.eql(true);",
+              "    pm.expect(body.attributes.jti).to.eql(pm.variables.get('jwt_jti'));",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/dev/auth/token",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "dev",
+            "auth",
+            "token"
+          ]
+        },
+        "description": "Requires a valid token in access_token and matching fingerprint. The pre-request script signs the request with REQUEST_SIGNATURE_SECRET."
+      },
+      "response": []
+    }
+  ],
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:8080"
+    },
+    {
+      "key": "access_token",
+      "value": ""
+    },
+    {
+      "key": "fingerprint",
+      "value": "postman-dev-fingerprint"
+    },
+    {
+      "key": "request_signature_secret",
+      "value": "dev-request-signature-secret-32-bytes-minimum"
+    }
+  ]
+}

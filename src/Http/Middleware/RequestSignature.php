@@ -5,6 +5,7 @@ namespace PCF\Addendum\Http\Middleware;
 
 use GuzzleHttp\Psr7\Response as PsrResponse;
 use GuzzleHttp\Psr7\Utils;
+use InvalidArgumentException;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Server\MiddlewareInterface;
@@ -24,7 +25,7 @@ use Psr\Http\Server\RequestHandlerInterface;
  *
  * Signature calculation:
  * - Public endpoints using this middleware: HMAC-SHA256(fingerprint, timestamp + fingerprint + method + path + body)
- * - Authenticated: HMAC-SHA256(HMAC(JWT_SECRET, jti + fingerprintHash), timestamp + fingerprint + method + path + body)
+ * - Authenticated: HMAC-SHA256(HMAC(REQUEST_SIGNATURE_SECRET, jti + fingerprintHash), timestamp + fingerprint + method + path + body)
  *
  * Protection against:
  * - Request tampering (body modification)
@@ -41,9 +42,13 @@ class RequestSignature implements MiddlewareInterface
     private const HEADER_NONCE = 'X-Request-Nonce';
 
     public function __construct(
-        private readonly string $jwtSecret,
+        private readonly string $requestSignatureSecret,
         private readonly RequestReplayCache $replayCache
-    ) {}
+    ) {
+        if (strlen($this->requestSignatureSecret) < 32) {
+            throw new InvalidArgumentException('REQUEST_SIGNATURE_SECRET must be at least 32 bytes');
+        }
+    }
 
     public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
     {
@@ -137,7 +142,7 @@ class RequestSignature implements MiddlewareInterface
         if ($isAuthenticated) {
             $jti = $request->getAttribute('jti');
             $fingerprintHash = $request->getAttribute('fingerprint_hash');
-            $signingKey = hash_hmac('sha256', (string) $jti . (string) $fingerprintHash, $this->jwtSecret);
+            $signingKey = hash_hmac('sha256', (string) $jti . (string) $fingerprintHash, $this->requestSignatureSecret);
         } else {
             $signingKey = $fingerprint;
         }
