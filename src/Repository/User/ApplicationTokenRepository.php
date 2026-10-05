@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PCF\Addendum\Repository\User;
@@ -180,7 +181,8 @@ final class ApplicationTokenRepository
         ?string $reason = null
     ): int {
         $stmt = $this->db->prepare(
-            'SELECT revoke_application_tokens_by_date(:created_after, :application_name, :owner_email, :reason) as count'
+            'SELECT revoke_application_tokens_by_date('
+            . ':created_after, :application_name, :owner_email, :reason) as count'
         );
 
         $stmt->execute([
@@ -237,6 +239,7 @@ final class ApplicationTokenRepository
         return ApplicationTokenStatistics::fromDatabaseRow($result);
     }
 
+    /** @param iterable<array<string, mixed>> $rows */
     private function tokensFromRows(iterable $rows): ApplicationTokenCollection
     {
         $tokens = new ApplicationTokenCollection();

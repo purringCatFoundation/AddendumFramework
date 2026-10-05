@@ -130,7 +130,8 @@ final class JwtTest extends TestCase
         $this->assertArrayNotHasKey('type', $claims);
     }
 
-    public function testDecodeRejectsLegacyTypeClaim(): void
+    #[DataProvider('legacyTypeClaims')]
+    public function testDecodeRejectsLegacyTypeClaim(mixed $legacyType): void
     {
         $token = $this->encodePayload([
             'sub' => 'user-uuid-123',
@@ -138,13 +139,21 @@ final class JwtTest extends TestCase
             'jti' => 'jti-123',
             'iat' => self::NOW,
             'tokenType' => TokenType::USER,
-            'type' => TokenType::USER,
+            'sid' => 'session-123',
+            'type' => $legacyType,
         ], ['alg' => 'RS256', 'appTokenType' => TokenType::USER]);
 
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('Invalid JWT claim: type');
 
         $this->decode($token);
+    }
+
+    public static function legacyTypeClaims(): iterable
+    {
+        yield 'matching legacy type' => [TokenType::USER];
+        yield 'conflicting legacy type' => [TokenType::ADMIN];
+        yield 'null legacy type' => [null];
     }
 
     public function testDecodeRejectsMissingAppTokenTypeHeader(): void

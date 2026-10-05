@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PCF\Addendum\Validation;
@@ -11,6 +12,7 @@ final readonly class RequestValidationPlanRule
     /** @var Vector<RequestValidatorInterface> */
     private Vector $validators;
 
+    /** @param iterable<mixed> $validators Validated before storing. */
     public function __construct(
         public string $fieldName,
         public RequestFieldSource $source,

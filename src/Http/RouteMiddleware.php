@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PCF\Addendum\Http;
@@ -27,6 +28,7 @@ class RouteMiddleware
         return $this;
     }
 
+    /** @param array<string, mixed> $options */
     public function addOptions(array $options): self
     {
         $this->options = $this->options->withAdditionalData($options);

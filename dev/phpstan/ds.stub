@@ -1,0 +1,30 @@
+<?php
+
+namespace Ds;
+
+/**
+ * Correct the polyfill's shared copy() annotation: vectors have one type parameter.
+ *
+ * @template TValue
+ */
+final class Vector
+{
+    /** @return Vector<TValue> */
+    public function copy(): self
+    {
+    }
+}
+
+/**
+ * Preserve map type parameters when copying through the polyfill's generic trait.
+ *
+ * @template TKey
+ * @template TValue
+ */
+final class Map
+{
+    /** @return Map<TKey, TValue> */
+    public function copy(): self
+    {
+    }
+}

@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PCF\Addendum\Action;
@@ -7,6 +8,7 @@ use PCF\Addendum\Exception\HttpException;
 use PCF\Addendum\Exception\InvalidCredentialsException;
 use PCF\Addendum\Exception\UnauthorizedException;
 use PCF\Addendum\Http\RequestFactory;
+use PCF\Addendum\Http\Request;
 use PCF\Addendum\Response\HttpHeadersAware;
 use PCF\Addendum\Response\HttpStatusAware;
 use GuzzleHttp\Psr7\Response as PsrResponse;
@@ -25,8 +27,9 @@ class ActionRequestHandler implements RequestHandlerInterface
         | JSON_HEX_APOS
         | JSON_HEX_QUOT;
 
+    /** @param callable(Request): mixed $action */
     public function __construct(
-        private $action,
+        private mixed $action,
         private LoggerInterface $logger
     ) {
     }
@@ -64,7 +67,7 @@ class ActionRequestHandler implements RequestHandlerInterface
                 headers: array_merge(['Content-Type' => 'application/json'], $headers),
                 body: $body
             );
-        } catch (InvalidCredentialsException|UnauthorizedException $e) {
+        } catch (InvalidCredentialsException | UnauthorizedException $e) {
             $body = Utils::streamFor(json_encode(['error' => $e->getMessage()], self::JSON_FLAGS));
             return new PsrResponse(
                 status: 401,

@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PCF\Addendum\Cache;
@@ -33,7 +34,7 @@ class RedisCacheFactory
     {
         $value = $_ENV[$name] ?? getenv($name);
 
-        if ($value === false || $value === null || $value === '') {
+        if ($value === false || $value === '') {
             return $default;
         }
 

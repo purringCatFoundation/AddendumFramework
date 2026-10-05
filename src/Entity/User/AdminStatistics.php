@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PCF\Addendum\Entity\User;
@@ -14,6 +15,7 @@ final readonly class AdminStatistics
     ) {
     }
 
+    /** @param array<string, mixed> $row */
     public static function fromDatabaseRow(array $row): self
     {
         return new self(

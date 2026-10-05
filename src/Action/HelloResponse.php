@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PCF\Addendum\Action;
@@ -11,6 +12,7 @@ class HelloResponse implements JsonSerializable
     {
     }
 
+    /** @return array<string, string> */
     public function jsonSerialize(): array
     {
         return ['message' => $this->message];

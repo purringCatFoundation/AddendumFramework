@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PCF\Addendum\Command;
@@ -29,10 +30,21 @@ class RevokeApplicationTokensCommand extends Command
     {
         $this
             ->addOption('type', null, InputOption::VALUE_REQUIRED, 'Token type to revoke', TokenType::APPLICATION)
-            ->addOption('uuid', null, InputOption::VALUE_REQUIRED, 'JWT subject to revoke, e.g. user UUID or application name')
+            ->addOption(
+                'uuid',
+                null,
+                InputOption::VALUE_REQUIRED,
+                'JWT subject to revoke, e.g. user UUID or application name'
+            )
             ->addOption('jti', null, InputOption::VALUE_REQUIRED, 'Revoke one specific JWT ID')
             ->addOption('before', null, InputOption::VALUE_REQUIRED, 'Revoke tokens issued at or before this timestamp')
-            ->addOption('reason', null, InputOption::VALUE_REQUIRED, 'Reason for revocation', 'application_token_revocation');
+            ->addOption(
+                'reason',
+                null,
+                InputOption::VALUE_REQUIRED,
+                'Reason for revocation',
+                'application_token_revocation'
+            );
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int

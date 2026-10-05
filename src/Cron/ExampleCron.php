@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PCF\Addendum\Cron;
@@ -16,6 +17,5 @@ class ExampleCron implements CronInterface
      */
     public function run(): void
     {
-
     }
 }

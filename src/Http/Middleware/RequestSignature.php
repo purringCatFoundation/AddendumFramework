@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PCF\Addendum\Http\Middleware;
@@ -25,7 +26,8 @@ use Psr\Http\Server\RequestHandlerInterface;
  *
  * Signature calculation:
  * - Public endpoints using this middleware: HMAC-SHA256(fingerprint, timestamp + fingerprint + method + path + body)
- * - Authenticated: HMAC-SHA256(HMAC(REQUEST_SIGNATURE_SECRET, jti + fingerprintHash), timestamp + fingerprint + method + path + body)
+ * - Authenticated: HMAC-SHA256(HMAC(REQUEST_SIGNATURE_SECRET, jti + fingerprintHash),
+ *   timestamp + fingerprint + method + path + body)
  *
  * Protection against:
  * - Request tampering (body modification)
@@ -57,6 +59,43 @@ class RequestSignature implements MiddlewareInterface
         $signature = $request->getHeaderLine(self::HEADER_SIGNATURE);
         $nonce = $request->getHeaderLine(self::HEADER_NONCE);
 
+        $headerError = $this->validateHeaders($timestamp, $fingerprint, $signature, $nonce);
+        if ($headerError !== null) {
+            return $headerError;
+        }
+        $timestampInt = (int) $timestamp;
+        if (abs(time() - $timestampInt) > self::TIMESTAMP_TOLERANCE_SECONDS) {
+            return $this->createErrorResponse(
+                'Request timestamp outside acceptable window (5 minutes)',
+                400
+            );
+        }
+
+        $expectedSignature = $this->calculateSignature(
+            $request,
+            $timestampInt,
+            $fingerprint,
+            $request->getAttribute('jti') !== null,
+            $nonce
+        );
+        if (!hash_equals($expectedSignature, $signature)) {
+            return $this->createErrorResponse('Invalid request signature', 403);
+        }
+        $fingerprintError = $this->validateFingerprint($request, $fingerprint);
+        if ($fingerprintError !== null) {
+            return $fingerprintError;
+        }
+        $replayError = $this->rememberNonce($request, $timestampInt, $fingerprint, $nonce, $signature);
+
+        return $replayError ?? $handler->handle($request);
+    }
+
+    private function validateHeaders(
+        string $timestamp,
+        string $fingerprint,
+        string $signature,
+        string $nonce
+    ): ?ResponseInterface {
         if (empty($timestamp)) {
             return $this->createErrorResponse('Missing required header: ' . self::HEADER_TIMESTAMP, 400);
         }
@@ -72,32 +111,12 @@ class RequestSignature implements MiddlewareInterface
         if ($this->replayCache->requiresNonce() && empty($nonce)) {
             return $this->createErrorResponse('Missing required header: ' . self::HEADER_NONCE, 400);
         }
-        $timestampInt = (int)$timestamp;
+        return null;
+    }
 
-        $now = time();
-        $diff = abs($now - $timestampInt);
-
-        if ($diff > self::TIMESTAMP_TOLERANCE_SECONDS) {
-            return $this->createErrorResponse(
-                'Request timestamp outside acceptable window (5 minutes)',
-                400
-            );
-        }
-
-        $isAuthenticated = $request->getAttribute('jti') !== null;
-        $expectedSignature = $this->calculateSignature(
-            $request,
-            $timestampInt,
-            $fingerprint,
-            $isAuthenticated,
-            $nonce
-        );
-
-        if (!hash_equals($expectedSignature, $signature)) {
-            return $this->createErrorResponse('Invalid request signature', 403);
-        }
-
-        if ($isAuthenticated) {
+    private function validateFingerprint(ServerRequestInterface $request, string $fingerprint): ?ResponseInterface
+    {
+        if ($request->getAttribute('jti') !== null) {
             $tokenFingerprintHash = $request->getAttribute('fingerprint_hash');
             $requestFingerprintHash = sha1($fingerprint);
 
@@ -109,6 +128,16 @@ class RequestSignature implements MiddlewareInterface
             }
         }
 
+        return null;
+    }
+
+    private function rememberNonce(
+        ServerRequestInterface $request,
+        int $timestampInt,
+        string $fingerprint,
+        string $nonce,
+        string $signature
+    ): ?ResponseInterface {
         if ($this->replayCache->requiresNonce()) {
             $replayKey = $this->createReplayCacheKey($request, $timestampInt, $fingerprint, $nonce, $signature);
 
@@ -119,8 +148,7 @@ class RequestSignature implements MiddlewareInterface
             $this->replayCache->set($replayKey, '1', self::TIMESTAMP_TOLERANCE_SECONDS);
         }
 
-        // Signature valid, proceed with request
-        return $handler->handle($request);
+        return null;
     }
 
     /**

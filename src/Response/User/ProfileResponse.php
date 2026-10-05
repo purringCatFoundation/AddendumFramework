@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PCF\Addendum\Response\User;
@@ -11,6 +12,7 @@ class ProfileResponse implements JsonSerializable
     {
     }
 
+    /** @return array{uuid: string|null} */
     public function jsonSerialize(): array
     {
         return ['uuid' => $this->uuid];

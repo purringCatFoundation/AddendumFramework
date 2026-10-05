@@ -1,10 +1,10 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PCF\Addendum\Command;
 
 use Symfony\Component\Console\Attribute\AsCommand;
-
 use Psr\SimpleCache\CacheInterface;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
@@ -18,6 +18,7 @@ class ClearCacheCommand extends Command
         parent::__construct();
     }
 
+    #[\Override]
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
         $this->cache->clear();

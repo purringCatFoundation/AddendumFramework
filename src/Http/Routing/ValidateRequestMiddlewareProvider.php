@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PCF\Addendum\Http\Routing;
@@ -14,6 +15,7 @@ use ReflectionClass;
 
 class ValidateRequestMiddlewareProvider implements MiddlewareProviderInterface
 {
+    /** @param ReflectionClass<object> $actionClass */
     public function provide(ReflectionClass $actionClass): RouteMiddlewareCollection
     {
         $attributes = $actionClass->getAttributes(ValidateRequest::class);

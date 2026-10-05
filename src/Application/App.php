@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PCF\Addendum\Application;
@@ -90,7 +91,7 @@ class App implements RequestHandlerInterface
 
     private function routeHandler(RouteMatch $match): RequestHandlerInterface
     {
-        return new class($match, $this->logger) implements RequestHandlerInterface {
+        return new class ($match, $this->logger) implements RequestHandlerInterface {
             public function __construct(
                 private readonly RouteMatch $match,
                 private readonly LoggerInterface $logger

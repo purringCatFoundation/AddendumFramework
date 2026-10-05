@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PCF\Addendum\Http\Middleware;
@@ -19,6 +20,7 @@ final class AccessControlGuardianCollection implements Countable, IteratorAggreg
     /** @var Vector<AccessControlGuardianDefinitionInterface> */
     private Vector $guardians;
 
+    /** @param iterable<AccessControlGuardianDefinitionInterface> $guardians */
     public function __construct(iterable $guardians = [])
     {
         $this->guardians = new Vector();
@@ -61,6 +63,7 @@ final class AccessControlGuardianCollection implements Countable, IteratorAggreg
         return $this->guardians->getIterator();
     }
 
+    /** @param mixed $offset */
     public function offsetExists(mixed $offset): bool
     {
         return is_int($offset) && $offset >= 0 && $offset < $this->guardians->count();
@@ -75,11 +78,13 @@ final class AccessControlGuardianCollection implements Countable, IteratorAggreg
         return $this->guardians->get($offset);
     }
 
+    #[\Override]
     public function offsetSet(mixed $offset, mixed $value): void
     {
         throw new InvalidArgumentException('Access control guardian collection is immutable through array access');
     }
 
+    #[\Override]
     public function offsetUnset(mixed $offset): void
     {
         throw new InvalidArgumentException('Access control guardian collection is immutable through array access');

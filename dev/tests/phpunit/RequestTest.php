@@ -7,11 +7,81 @@ namespace CitiesRpg\Tests;
 use PCF\Addendum\Http\Request;
 use PCF\Addendum\Http\RequestFactory;
 use GuzzleHttp\Psr7\ServerRequest;
+use GuzzleHttp\Psr7\Uri;
+use GuzzleHttp\Psr7\Utils;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ServerRequestInterface;
 
 final class RequestTest extends TestCase
 {
+    #[DataProvider('requestMutations')]
+    public function testMutationsPreserveWrapperAndLeaveOriginalUnchanged(
+        callable $mutate,
+        callable $read,
+        mixed $expected
+    ): void {
+        $original = new RequestSubclassFixture(
+            new ServerRequest('GET', 'https://example.com/original', ['X-Test' => 'before'], 'original body')
+                ->withAttribute('userUuid', 'user-123')
+                ->withQueryParams(['page' => '2'])
+        );
+        $originalValue = $read($original);
+
+        $modified = $mutate($original);
+
+        self::assertInstanceOf(RequestSubclassFixture::class, $modified);
+        self::assertNotSame($original, $modified);
+        self::assertSame($expected, $read($modified));
+        self::assertSame($originalValue, $read($original));
+        self::assertSame('user-123', $modified->get('userUuid'));
+        self::assertSame('2', $modified->get('page'));
+    }
+
+    public static function requestMutations(): iterable
+    {
+        yield 'target' => [
+            static fn(Request $request) => $request->withRequestTarget('/changed'),
+            static fn(Request $request) => $request->getRequestTarget(),
+            '/changed',
+        ];
+        yield 'method' => [
+            static fn(Request $request) => $request->withMethod('POST'),
+            static fn(Request $request) => $request->getMethod(),
+            'POST',
+        ];
+        yield 'uri' => [
+            static fn(Request $request) => $request->withUri(new Uri('https://example.org/changed')),
+            static fn(Request $request) => (string) $request->getUri(),
+            'https://example.org/changed',
+        ];
+        yield 'protocol' => [
+            static fn(Request $request) => $request->withProtocolVersion('2.0'),
+            static fn(Request $request) => $request->getProtocolVersion(),
+            '2.0',
+        ];
+        yield 'header' => [
+            static fn(Request $request) => $request->withHeader('X-Test', 'after'),
+            static fn(Request $request) => $request->getHeader('X-Test'),
+            ['after'],
+        ];
+        yield 'added header' => [
+            static fn(Request $request) => $request->withAddedHeader('X-Test', 'after'),
+            static fn(Request $request) => $request->getHeader('X-Test'),
+            ['before', 'after'],
+        ];
+        yield 'removed header' => [
+            static fn(Request $request) => $request->withoutHeader('X-Test'),
+            static fn(Request $request) => $request->getHeader('X-Test'),
+            [],
+        ];
+        yield 'body' => [
+            static fn(Request $request) => $request->withBody(Utils::streamFor('changed body')),
+            static fn(Request $request) => (string) $request->getBody(),
+            'changed body',
+        ];
+    }
+
     private RequestFactory $requestFactory;
 
     protected function setUp(): void
@@ -460,4 +530,8 @@ final class RequestTest extends TestCase
         
         $this->assertSame($method, $request->getMethod());
     }
+}
+
+final class RequestSubclassFixture extends Request
+{
 }

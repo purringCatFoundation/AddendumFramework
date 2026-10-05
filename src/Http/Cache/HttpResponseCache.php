@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PCF\Addendum\Http\Cache;
@@ -38,6 +39,8 @@ final readonly class HttpResponseCache
             $this->cache->set($key, HttpCachedResponse::fromResponse($response)->toJson(), $ttl);
             $this->recordResources($key, $resources);
         } catch (Throwable) {
+            // Cache writes are best-effort; serving the response must still succeed.
+            return;
         }
     }
 
@@ -56,6 +59,8 @@ final readonly class HttpResponseCache
                 $this->cache->delete($indexKey);
             }
         } catch (Throwable) {
+            // Cache invalidation failures must not fail the originating request.
+            return;
         }
     }
 

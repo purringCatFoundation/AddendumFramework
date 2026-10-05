@@ -11,7 +11,10 @@
     ],
     "require-dev": {
         "php-ds/php-ds": "^1.8",
-        "phpunit/phpunit": "^12.3"
+        "phpmd/phpmd": "^3.0",
+        "phpstan/phpstan": "^2.2.17",
+        "phpunit/phpunit": "^12.3",
+        "squizlabs/php_codesniffer": "^4.0.4"
     },
     "require": {
         "php": "^8.5",
@@ -49,6 +52,17 @@
     "bin": [
         "bin/addendum"
     ],
+    "scripts": {
+        "test": "phpunit",
+        "phpcs": "phpcs --standard=phpcs.xml.dist",
+        "phpstan": "phpstan analyse --configuration=phpstan.neon.dist --no-progress --memory-limit=1G",
+        "phpmd": "phpmd analyze --ruleset phpmd.xml --no-progress --strict src/",
+        "quality": [
+            "@phpcs",
+            "@phpstan",
+            "@phpmd"
+        ]
+    },
     "minimum-stability": "stable",
     "prefer-stable": true
 }

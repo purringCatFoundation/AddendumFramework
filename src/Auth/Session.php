@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PCF\Addendum\Auth;
@@ -105,6 +106,8 @@ final class Session
 
     /**
      * Get session information as array
+     *
+     * @return array<string, string|int|bool>
      */
     /** @return array<string, string|int|bool|null> */
     public function toArray(): array

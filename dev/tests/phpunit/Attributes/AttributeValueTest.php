@@ -44,4 +44,23 @@ final class AttributeValueTest extends TestCase
 
         $this->assertSame(['first', 'second'], iterator_to_array($value));
     }
+
+    public function testCurrentReturnsNullForEmptyValues(): void
+    {
+        $value = new AttributeValue(Name::class, []);
+
+        $this->assertFalse($value->valid());
+        $this->assertNull($value->current());
+    }
+
+    public function testCurrentReturnsNullAfterIterationEnds(): void
+    {
+        $value = new AttributeValue(Name::class, ['first']);
+        $value->next();
+
+        $this->assertFalse($value->valid());
+        $this->assertNull($value->current());
+        $value->rewind();
+        $this->assertSame('first', $value->current());
+    }
 }

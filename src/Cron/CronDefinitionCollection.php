@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PCF\Addendum\Cron;
@@ -14,6 +15,7 @@ final class CronDefinitionCollection implements Countable, IteratorAggregate
     /** @var Map<string, CronDefinition> */
     private Map $definitions;
 
+    /** @param iterable<CronDefinition> $definitions */
     public function __construct(iterable $definitions = [])
     {
         $this->definitions = new Map();

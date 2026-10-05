@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PCF\Addendum\Cron;
@@ -80,7 +81,8 @@ class ScheduleResource
     public function createSchedule(string $code, DateTimeInterface $time): void
     {
         $stmt = $this->pdo->prepare(
-            'INSERT INTO cron_schedule(code, scheduled_at, status) VALUES(:code, :time, :status) ON CONFLICT (code, scheduled_at) DO NOTHING'
+            'INSERT INTO cron_schedule(code, scheduled_at, status) VALUES(:code, :time, :status) '
+            . 'ON CONFLICT (code, scheduled_at) DO NOTHING'
         );
         $stmt->execute([
             'code' => $code,
@@ -110,7 +112,9 @@ class ScheduleResource
 
     public function registerCron(string $code, string $expression): void
     {
-        $stmt = $this->pdo->prepare('INSERT INTO cron(code, expression) VALUES(:code, :expression) ON CONFLICT (code) DO NOTHING');
+        $stmt = $this->pdo->prepare(
+            'INSERT INTO cron(code, expression) VALUES(:code, :expression) ON CONFLICT (code) DO NOTHING'
+        );
         $stmt->execute(['code' => $code, 'expression' => $expression]);
     }
 

@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PCF\Addendum\Attribute;
@@ -36,7 +37,10 @@ class ValidateRequest
 
         if ($lastParam instanceof RequestFieldSource) {
             $this->source = array_pop($params);
-        } elseif (is_string($lastParam) && in_array($lastParam, [self::SOURCE_BODY, self::SOURCE_QUERY, self::SOURCE_HEADER], true)) {
+        } elseif (
+            is_string($lastParam)
+            && in_array($lastParam, [self::SOURCE_BODY, self::SOURCE_QUERY, self::SOURCE_HEADER], true)
+        ) {
             $this->source = RequestFieldSource::fromString(array_pop($params));
         } else {
             $this->source = RequestFieldSource::Body;
@@ -44,7 +48,9 @@ class ValidateRequest
 
         foreach ($params as $param) {
             if (!$param instanceof RequestValidationConstraintInterface) {
-                throw new InvalidArgumentException('ValidateRequest accepts validation constraints followed by an optional source');
+                throw new InvalidArgumentException(
+                    'ValidateRequest accepts validation constraints followed by an optional source'
+                );
             }
         }
 

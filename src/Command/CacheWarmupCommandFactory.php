@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PCF\Addendum\Command;
@@ -10,6 +11,8 @@ final class CacheWarmupCommandFactory implements FactoryInterface
 {
     public function create(): CacheWarmupCommand
     {
-        return new CacheWarmupCommand(new ApplicationCacheConfigurationFactory(new SystemEnvironmentProvider())->create());
+        return new CacheWarmupCommand(
+            new ApplicationCacheConfigurationFactory(new SystemEnvironmentProvider())->create()
+        );
     }
 }

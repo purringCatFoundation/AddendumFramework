@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PCF\Addendum\Http\Routing;
@@ -61,13 +62,19 @@ final readonly class CompiledRouteCollectionCache
         $factory = require $this->configuration->routesFile();
 
         if (!is_callable($factory)) {
-            throw new RuntimeException(sprintf('Compiled routes file "%s" must return a callable', $this->configuration->routesFile()));
+            throw new RuntimeException(sprintf(
+                'Compiled routes file "%s" must return a callable',
+                $this->configuration->routesFile()
+            ));
         }
 
         $routes = $factory();
 
         if (!$routes instanceof RouteCollection) {
-            throw new RuntimeException(sprintf('Compiled routes file "%s" must return RouteCollection', $this->configuration->routesFile()));
+            throw new RuntimeException(sprintf(
+                'Compiled routes file "%s" must return RouteCollection',
+                $this->configuration->routesFile()
+            ));
         }
 
         return $routes;

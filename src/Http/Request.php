@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PCF\Addendum\Http;
@@ -53,9 +54,9 @@ class Request implements RequestInterface
         return $this->serverRequest->getRequestTarget();
     }
 
-    public function withRequestTarget($requestTarget): RequestInterface
+    public function withRequestTarget($requestTarget): static
     {
-        return $this->serverRequest->withRequestTarget($requestTarget);
+        return $this->withServerRequest($this->serverRequest->withRequestTarget($requestTarget));
     }
 
     public function getMethod(): string
@@ -63,9 +64,9 @@ class Request implements RequestInterface
         return $this->serverRequest->getMethod();
     }
 
-    public function withMethod($method): RequestInterface
+    public function withMethod($method): static
     {
-        return $this->serverRequest->withMethod($method);
+        return $this->withServerRequest($this->serverRequest->withMethod($method));
     }
 
     public function getUri(): UriInterface
@@ -73,9 +74,9 @@ class Request implements RequestInterface
         return $this->serverRequest->getUri();
     }
 
-    public function withUri(UriInterface $uri, $preserveHost = false): RequestInterface
+    public function withUri(UriInterface $uri, $preserveHost = false): static
     {
-        return $this->serverRequest->withUri($uri, $preserveHost);
+        return $this->withServerRequest($this->serverRequest->withUri($uri, $preserveHost));
     }
 
     public function getProtocolVersion(): string
@@ -83,9 +84,9 @@ class Request implements RequestInterface
         return $this->serverRequest->getProtocolVersion();
     }
 
-    public function withProtocolVersion($version): RequestInterface
+    public function withProtocolVersion($version): static
     {
-        return $this->serverRequest->withProtocolVersion($version);
+        return $this->withServerRequest($this->serverRequest->withProtocolVersion($version));
     }
 
     public function getHeaders(): array
@@ -108,19 +109,19 @@ class Request implements RequestInterface
         return $this->serverRequest->getHeaderLine($name);
     }
 
-    public function withHeader($name, $value): RequestInterface
+    public function withHeader($name, $value): static
     {
-        return $this->serverRequest->withHeader($name, $value);
+        return $this->withServerRequest($this->serverRequest->withHeader($name, $value));
     }
 
-    public function withAddedHeader($name, $value): RequestInterface
+    public function withAddedHeader($name, $value): static
     {
-        return $this->serverRequest->withAddedHeader($name, $value);
+        return $this->withServerRequest($this->serverRequest->withAddedHeader($name, $value));
     }
 
-    public function withoutHeader($name): RequestInterface
+    public function withoutHeader($name): static
     {
-        return $this->serverRequest->withoutHeader($name);
+        return $this->withServerRequest($this->serverRequest->withoutHeader($name));
     }
 
     public function getBody(): StreamInterface
@@ -128,8 +129,16 @@ class Request implements RequestInterface
         return $this->serverRequest->getBody();
     }
 
-    public function withBody(StreamInterface $body): RequestInterface
+    public function withBody(StreamInterface $body): static
     {
-        return $this->serverRequest->withBody($body);
+        return $this->withServerRequest($this->serverRequest->withBody($body));
+    }
+
+    private function withServerRequest(ServerRequestInterface $serverRequest): static
+    {
+        $request = clone $this;
+        $request->serverRequest = $serverRequest;
+
+        return $request;
     }
 }

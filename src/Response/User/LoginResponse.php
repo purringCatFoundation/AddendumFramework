@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PCF\Addendum\Response\User;
@@ -11,6 +12,7 @@ class LoginResponse implements JsonSerializable
     {
     }
 
+    /** @return array{access_token: string, refresh_token: string} */
     public function jsonSerialize(): array
     {
         return [

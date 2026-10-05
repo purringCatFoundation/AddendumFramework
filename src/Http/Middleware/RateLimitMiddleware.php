@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PCF\Addendum\Http\Middleware;
@@ -36,7 +37,8 @@ class RateLimitMiddleware implements MiddlewareInterface
     public function __construct(
         private readonly RedisClient|RedisInterface $redis,
         private readonly ?RateLimit $rateLimitDefinition = null
-    ) {}
+    ) {
+    }
 
     public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
     {

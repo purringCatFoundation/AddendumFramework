@@ -15,7 +15,6 @@ use Symfony\Component\Console\Output\OutputInterface;
 #[AsCommand(name: 'auth:logout', description: 'Invalidate JWT tokens to log out users')]
 class LogoutCommand extends Command
 {
-
     public function __construct(private TokenValidationRepository $tokenValidationRepository)
     {
         parent::__construct();

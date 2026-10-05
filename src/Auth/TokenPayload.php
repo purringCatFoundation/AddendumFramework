@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PCF\Addendum\Auth;
@@ -18,7 +19,12 @@ class TokenPayload implements JsonSerializable
     ) {
     }
 
-    /** @return array<string, string|int> */
+    /**
+     * @return array{
+     *     sub: string, exp: int, jti: string, iat: int,
+     *     tokenType?: string, fingerprintHash?: string, sid?: string
+     * }
+     */
     public function jsonSerialize(): array
     {
         $data = [

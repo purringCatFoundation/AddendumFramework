@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PCF\Addendum\Cron;
@@ -12,4 +13,3 @@ class ExampleCronFactory
         return new ExampleCron();
     }
 }
-

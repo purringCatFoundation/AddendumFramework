@@ -1,9 +1,11 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PCF\Addendum\Command;
 
 use Ds\Map;
+use PCF\Addendum\Util\ClassNameReader;
 use ReflectionClass;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
@@ -87,54 +89,6 @@ class CommandScanner
     private function extractClassName(string $filePath): ?string
     {
         $contents = file_get_contents($filePath);
-        $tokens = token_get_all($contents);
-
-        $namespace = '';
-        $class = '';
-        $namespaceFound = false;
-        $classFound = false;
-
-        foreach ($tokens as $token) {
-            if (!is_array($token)) {
-                continue;
-            }
-
-            if ($token[0] === T_NAMESPACE) {
-                $namespaceFound = true;
-                continue;
-            }
-
-            if ($namespaceFound && $token[0] === T_NAME_QUALIFIED) {
-                $namespace = $token[1];
-                $namespaceFound = false;
-                continue;
-            }
-
-            if ($namespaceFound && $token[0] === T_STRING) {
-                $namespace .= $token[1];
-                continue;
-            }
-
-            if ($namespaceFound && $token[0] === T_NS_SEPARATOR) {
-                $namespace .= '\\';
-                continue;
-            }
-
-            if ($token[0] === T_CLASS) {
-                $classFound = true;
-                continue;
-            }
-
-            if ($classFound && $token[0] === T_STRING) {
-                $class = $token[1];
-                break;
-            }
-        }
-
-        if ($class === '') {
-            return null;
-        }
-
-        return $namespace !== '' ? $namespace . '\\' . $class : $class;
+        return $contents === false ? null : ClassNameReader::fromSource($contents);
     }
 }

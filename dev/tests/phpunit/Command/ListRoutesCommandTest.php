@@ -8,6 +8,7 @@ use PCF\Addendum\Attribute\RateLimit;
 use PCF\Addendum\Attribute\Route;
 use PCF\Addendum\Auth\Session;
 use PCF\Addendum\Command\ListRoutesCommand;
+use PCF\Addendum\Command\ListRoutesCommandFactory;
 use PCF\Addendum\Guardian\AccessControlGuardianInterface;
 use PCF\Addendum\Http\Cache\ResourcePolicyCollection;
 use PCF\Addendum\Http\Middleware\ClassAccessControlGuardianDefinition;
@@ -24,6 +25,17 @@ use Symfony\Component\Console\Tester\CommandTester;
 
 final class ListRoutesCommandTest extends TestCase
 {
+    public function testFactoryCreatesCommandWithBuiltInRoutes(): void
+    {
+        $tester = new CommandTester(new ListRoutesCommandFactory()->create());
+
+        $tester->execute([]);
+
+        self::assertSame(Command::SUCCESS, $tester->getStatusCode());
+        self::assertStringContainsString('/v1/users', $tester->getDisplay());
+        self::assertStringContainsString('PostUserAction', $tester->getDisplay());
+    }
+
     public function testFailsWhenNoRoutesAreRegistered(): void
     {
         $tester = new CommandTester(new ListRoutesCommand(new Router(new RouteCollection())));

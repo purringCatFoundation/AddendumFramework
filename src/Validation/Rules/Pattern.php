@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PCF\Addendum\Validation\Rules;
@@ -8,7 +9,7 @@ use PCF\Addendum\Validation\AbstractRequestValidator;
 class Pattern extends AbstractRequestValidator
 {
     public function __construct(
-        private readonly string  $pattern,
+        private readonly string $pattern,
         private readonly ?string $errorMessage = null
     ) {
     }

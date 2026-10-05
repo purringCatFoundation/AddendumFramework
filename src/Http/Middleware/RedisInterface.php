@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PCF\Addendum\Http\Middleware;
@@ -14,6 +15,7 @@ interface RedisInterface
 
     public function zcard(string $key): int;
 
+    /** @param array<string, int|float> $values Member-to-score mapping. */
     public function zadd(string $key, array $values): int;
 
     public function expire(string $key, int $seconds): bool;

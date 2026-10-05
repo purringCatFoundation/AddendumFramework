@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PCF\Addendum\Auth;
@@ -56,7 +57,10 @@ class TokenValidationRepository
         string $reason = 'token_revocation',
         ?string $createdBy = null
     ): void {
-        $stmt = $this->pdo->prepare('SELECT revoke_token(:jti, :token_type, :subject, to_timestamp(:issued_at)::timestamp, :reason, :created_by::uuid)');
+        $stmt = $this->pdo->prepare(
+            'SELECT revoke_token(:jti, :token_type, :subject, '
+            . 'to_timestamp(:issued_at)::timestamp, :reason, :created_by::uuid)'
+        );
         $stmt->execute([
             'jti' => $jti,
             'token_type' => $tokenType,
@@ -75,7 +79,9 @@ class TokenValidationRepository
         string $reason = 'token_revocation',
         ?string $createdBy = null
     ): void {
-        $stmt = $this->pdo->prepare('SELECT revoke_tokens_before(:token_type, :subject, :jti, :revoked_before, :reason, :created_by::uuid)');
+        $stmt = $this->pdo->prepare(
+            'SELECT revoke_tokens_before(:token_type, :subject, :jti, :revoked_before, :reason, :created_by::uuid)'
+        );
         $stmt->execute([
             'token_type' => $tokenType,
             'subject' => $subject,
@@ -91,9 +97,10 @@ class TokenValidationRepository
         string $reason = 'user_logout',
         ?string $createdBy = null,
         ?string $tokenType = null
-    ): void
-    {
-        $stmt = $this->pdo->prepare('SELECT revoke_user_tokens(:user_uuid::uuid, :reason, :created_by::uuid, :token_type)');
+    ): void {
+        $stmt = $this->pdo->prepare(
+            'SELECT revoke_user_tokens(:user_uuid::uuid, :reason, :created_by::uuid, :token_type)'
+        );
         $stmt->execute([
             'user_uuid' => $userUuid,
             'reason' => $reason,
@@ -106,8 +113,7 @@ class TokenValidationRepository
         string $reason = 'global_revocation',
         ?string $createdBy = null,
         ?string $tokenType = null
-    ): void
-    {
+    ): void {
         $stmt = $this->pdo->prepare('SELECT revoke_all_tokens(:reason, :created_by, :token_type)');
         $stmt->execute([
             'reason' => $reason,
@@ -120,7 +126,7 @@ class TokenValidationRepository
     {
         $stmt = $this->pdo->prepare('SELECT cleanup_expired_revocations(:days_old)');
         $stmt->execute(['days_old' => $daysOld]);
-        
+
         return (int) $stmt->fetchColumn();
     }
 }

@@ -1,0 +1,72 @@
+name: Quality
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality:
+    name: ${{ matrix.tool }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        tool: [PHP_CodeSniffer, PHPStan, PHPMD]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.5'
+          extensions: ds, openssl, pdo_pgsql, pdo_sqlite, dom, mbstring, simplexml, tokenizer, xml, xmlwriter
+          tools: composer:v2
+          coverage: none
+
+      - name: Locate Composer cache
+        id: composer-cache
+        run: echo "dir=$(composer config cache-files-dir)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache Composer downloads
+        uses: actions/cache@v6
+        with:
+          path: ${{ steps.composer-cache.outputs.dir }}
+          key: ${{ runner.os }}-php-8.5-composer-${{ hashFiles('composer.lock') }}
+          restore-keys: ${{ runner.os }}-php-8.5-composer-
+
+      - name: Validate Composer metadata
+        run: composer validate --strict
+
+      - name: Install dependencies
+        run: composer install --no-interaction --prefer-dist --no-progress
+
+      - name: Register PHP_CodeSniffer annotations
+        if: matrix.tool == 'PHP_CodeSniffer'
+        run: echo '::add-matcher::.github/phpcs-problem-matcher.json'
+
+      - name: Run PHP_CodeSniffer
+        if: matrix.tool == 'PHP_CodeSniffer'
+        run: composer phpcs -- --report=emacs
+
+      - name: Run PHPStan
+        if: matrix.tool == 'PHPStan'
+        run: composer phpstan -- --error-format=github
+
+      - name: Run PHPMD
+        if: matrix.tool == 'PHPMD'
+        run: composer phpmd -- --format=github

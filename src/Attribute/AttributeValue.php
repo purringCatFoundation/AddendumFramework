@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PCF\Addendum\Attribute;
@@ -40,7 +41,7 @@ final class AttributeValue implements AttributeValueInterface
 
     public function current(): mixed
     {
-        return $this->values->get($this->position, null);
+        return $this->valid() ? $this->values->get($this->position) : null;
     }
 
     public function next(): void

@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PCF\Addendum\Http;
@@ -15,5 +16,4 @@ class RouteMatch
         public readonly ResourcePolicyCollection $resourcePolicies
     ) {
     }
-
 }

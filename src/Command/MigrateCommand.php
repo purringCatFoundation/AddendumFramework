@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PCF\Addendum\Command;
@@ -13,7 +14,6 @@ use Symfony\Component\Console\Output\OutputInterface;
 #[AsCommand(name: 'db:migrate', description: 'Run database migrations')]
 class MigrateCommand extends Command
 {
-
     public function __construct(private MigrationRunner $runner)
     {
         parent::__construct();

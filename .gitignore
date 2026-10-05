@@ -1,4 +1,13 @@
 .idea/
+.env
+.env.local
+.env.*.local
 vendor/
 var/cache/
+**/var/cache/
+var/keys/
 .phpunit.cache/
+.phpcs-cache
+.phpstan-cache/
+.phpmd.result-cache.php
+coverage/

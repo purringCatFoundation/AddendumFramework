@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PCF\Addendum\Validation;
@@ -22,6 +23,7 @@ final readonly class RequestValidationRule implements JsonSerializable
         return new self($fieldName, $source, RequestValidationConstraintCollection::of(...$constraints));
     }
 
+    /** @return array<string, mixed> */
     public function jsonSerialize(): array
     {
         return [

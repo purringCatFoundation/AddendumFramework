@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PCF\Addendum\Http\Middleware;
@@ -14,6 +15,7 @@ class Dummy implements MiddlewareInterface
     /** @var Map<string, mixed> */
     private Map $options;
 
+    /** @param iterable<string, mixed> $options */
     public function __construct(iterable $options = [])
     {
         $this->options = $options instanceof Map ? $options->copy() : new Map($options);

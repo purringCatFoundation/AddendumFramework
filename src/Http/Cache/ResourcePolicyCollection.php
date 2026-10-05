@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PCF\Addendum\Http\Cache;
@@ -20,9 +21,9 @@ final readonly class ResourcePolicyCollection
     }
 
     /**
-     * @param list<ResourcePolicy> $policies
+     * @param array<array-key, ResourcePolicy> $policies
      */
-    public static function fromArray(array $policies): ?self
+    public static function fromArray(array $policies): self
     {
         if ($policies === []) {
             return new self([new ResourcePolicy()]);
@@ -61,7 +62,7 @@ final readonly class ResourcePolicyCollection
                 continue;
             }
 
-            $name = $id !== null && $id !== ''
+            $name = $id !== null
                 ? $resource . ':' . (string) $id
                 : $resource;
 

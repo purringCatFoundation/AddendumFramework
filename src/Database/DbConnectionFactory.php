@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PCF\Addendum\Database;
@@ -14,13 +15,13 @@ class DbConnectionFactory implements FactoryInterface
         $dsn = $this->getDsn();
         $user = $this->getEnvVar('POSTGRES_USER', 'app');
         $pass = $this->getEnvVar('POSTGRES_PASSWORD', '');
-        
+
         $pdo = new PDO($dsn, $user, $pass);
         $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-        
+
         return $pdo;
     }
-    
+
     private function getDsn(): string
     {
         $dsn = $this->getEnvVar('DB_DSN');
@@ -44,7 +45,7 @@ class DbConnectionFactory implements FactoryInterface
     {
         $value = $_ENV[$name] ?? getenv($name);
 
-        if ($value === false || $value === null || $value === '') {
+        if ($value === false || $value === '') {
             return $default;
         }
 

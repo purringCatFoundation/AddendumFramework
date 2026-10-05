@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PCF\Addendum\Http;
@@ -19,6 +20,7 @@ final class RegisteredRouteCollection implements Countable, IteratorAggregate, A
     /** @var Vector<RegisteredRoute> */
     private Vector $routes;
 
+    /** @param iterable<RegisteredRoute> $routes */
     public function __construct(iterable $routes = [])
     {
         $this->routes = new Vector();
@@ -61,6 +63,7 @@ final class RegisteredRouteCollection implements Countable, IteratorAggregate, A
         return $this->routes->getIterator();
     }
 
+    /** @param mixed $offset */
     public function offsetExists(mixed $offset): bool
     {
         return is_int($offset) && $offset >= 0 && $offset < $this->routes->count();
@@ -75,11 +78,13 @@ final class RegisteredRouteCollection implements Countable, IteratorAggregate, A
         return $this->routes->get($offset);
     }
 
+    #[\Override]
     public function offsetSet(mixed $offset, mixed $value): void
     {
         throw new InvalidArgumentException('Registered route collection is immutable through array access');
     }
 
+    #[\Override]
     public function offsetUnset(mixed $offset): void
     {
         throw new InvalidArgumentException('Registered route collection is immutable through array access');

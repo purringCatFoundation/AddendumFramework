@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PCF\Addendum\Config;
@@ -16,11 +17,11 @@ class JwtConfig
     ) {
         $this->assertReadableFile($this->privateKeyPath, 'JWT private key');
         $this->assertReadableFile($this->publicKeyPath, 'JWT public key');
-        
+
         if ($this->accessTokenLifetime < 60) {
             throw new InvalidArgumentException('Access token lifetime must be at least 60 seconds');
         }
-        
+
         if ($this->refreshTokenLifetime < $this->accessTokenLifetime) {
             throw new InvalidArgumentException('Refresh token lifetime must be greater than access token lifetime');
         }

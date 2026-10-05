@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PCF\Addendum\Entity\User;
@@ -62,6 +63,8 @@ final class Admin
 
     /**
      * Create Admin from database row
+     *
+     * @param array<string, mixed> $row
      */
     public static function fromDatabaseRow(array $row): self
     {

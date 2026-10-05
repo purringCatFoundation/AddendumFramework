@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PCF\Addendum\Http\Routing;
@@ -12,6 +13,7 @@ use ReflectionClass;
 
 class CustomMiddlewareProvider implements MiddlewareProviderInterface
 {
+    /** @param ReflectionClass<object> $actionClass */
     public function provide(ReflectionClass $actionClass): RouteMiddlewareCollection
     {
         $middlewares = new RouteMiddlewareCollection();

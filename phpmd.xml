@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ruleset name="Addendum Framework"
+         xmlns="http://pmd.sf.net/ruleset/1.0.0">
+    <description>Strict complexity, design and unused-code checks for framework source code.</description>
+    <rule ref="rulesets/codesize.xml">
+        <exclude name="TooManyPublicMethods"/>
+    </rule>
+    <rule ref="rulesets/codesize.xml/TooManyPublicMethods">
+        <!-- ArrayAccess methods are required collection protocol, not additional business operations. -->
+        <properties>
+            <property name="ignorepattern" value="(^(set|get|is|has|with|test)|^offset(Exists|Get|Set|Unset)$)i"/>
+        </properties>
+    </rule>
+    <rule ref="rulesets/design.xml">
+        <!-- Application::console() deliberately terminates the CLI process with its exit status. -->
+        <exclude name="ExitExpression"/>
+    </rule>
+    <rule ref="rulesets/unusedcode.xml"/>
+</ruleset>

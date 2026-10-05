@@ -1,0 +1,9 @@
+parameters:
+    level: 6
+    phpVersion: 80500
+    paths:
+        - src
+    tmpDir: .phpstan-cache
+    stubFiles:
+        - dev/phpstan/ds.stub
+    reportUnmatchedIgnoredErrors: true
