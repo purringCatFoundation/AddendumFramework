@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PCF\Addendum\Exception;
@@ -12,4 +13,3 @@ class InvalidCredentialsException extends RuntimeException
         parent::__construct('Invalid credentials');
     }
 }
-

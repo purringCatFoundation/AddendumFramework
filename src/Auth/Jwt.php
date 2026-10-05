@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PCF\Addendum\Auth;
@@ -18,8 +19,11 @@ class Jwt
     private const int CLOCK_SKEW_SECONDS = 60;
     private const string ALGORITHM = 'RS256';
 
-    public static function encode(TokenPayload $payload, string $privateKeyPath, ?string $privateKeyPassphrase = null): string
-    {
+    public static function encode(
+        TokenPayload $payload,
+        string $privateKeyPath,
+        ?string $privateKeyPassphrase = null
+    ): string {
         $jwk = JWKFactory::createFromKeyFile($privateKeyPath, $privateKeyPassphrase);
         $algManager = new AlgorithmManager([new RS256()]);
         $builder = new JWSBuilder($algManager);
@@ -47,12 +51,40 @@ class Jwt
         }
 
         $protectedHeader = $jws->getSignature(0)->getProtectedHeader();
-        if (!isset($protectedHeader['appTokenType']) || !is_string($protectedHeader['appTokenType']) || trim($protectedHeader['appTokenType']) === '') {
-            throw new InvalidArgumentException('Missing required JWT header: appTokenType');
+        self::assertTokenTypeHeader($protectedHeader);
+        $payload = self::decodePayload($jws->getPayload() ?? '');
+        self::assertRequiredClaims($payload);
+        self::assertStringClaims($payload);
+        self::assertIntegerClaims($payload);
+        self::assertNoLegacyTypeClaim($payload);
+
+        if ($protectedHeader['appTokenType'] !== $payload['tokenType']) {
+            throw new InvalidArgumentException('JWT header appTokenType does not match tokenType claim');
         }
 
+        self::assertSessionId($payload);
+        self::assertTimestamps($payload, $now);
+
+        return TokenPayload::fromArray($payload);
+    }
+
+    /** @param array<string, mixed> $header */
+    private static function assertTokenTypeHeader(array $header): void
+    {
+        if (
+            !isset($header['appTokenType'])
+            || !is_string($header['appTokenType'])
+            || trim($header['appTokenType']) === ''
+        ) {
+            throw new InvalidArgumentException('Missing required JWT header: appTokenType');
+        }
+    }
+
+    /** @return array<string, mixed> */
+    private static function decodePayload(string $json): array
+    {
         try {
-            $payload = json_decode($jws->getPayload() ?? '', true, flags: JSON_THROW_ON_ERROR);
+            $payload = json_decode($json, true, flags: JSON_THROW_ON_ERROR);
         } catch (JsonException $exception) {
             throw new InvalidArgumentException('Invalid payload', 0, $exception);
         }
@@ -61,34 +93,53 @@ class Jwt
             throw new InvalidArgumentException('Invalid payload');
         }
 
-        if (array_key_exists('type', $payload)) {
-            throw new InvalidArgumentException('Invalid JWT claim: type');
-        }
+        return $payload;
+    }
 
+    /** @param array<string, mixed> $payload */
+    private static function assertRequiredClaims(array $payload): void
+    {
         foreach (['sub', 'exp', 'jti', 'iat', 'tokenType'] as $requiredClaim) {
             if (!array_key_exists($requiredClaim, $payload)) {
                 throw new InvalidArgumentException("Missing required JWT claim: {$requiredClaim}");
             }
         }
+    }
 
+    /** @param array<string, mixed> $payload */
+    private static function assertStringClaims(array $payload): void
+    {
         foreach (['sub', 'jti', 'tokenType'] as $stringClaim) {
             if (!is_string($payload[$stringClaim]) || trim($payload[$stringClaim]) === '') {
                 throw new InvalidArgumentException("Invalid JWT claim: {$stringClaim}");
             }
         }
+    }
 
+    /** @param array<string, mixed> $payload */
+    private static function assertIntegerClaims(array $payload): void
+    {
         foreach (['exp', 'iat'] as $integerClaim) {
-            if (!is_int($payload[$integerClaim]) && !(is_string($payload[$integerClaim]) && ctype_digit($payload[$integerClaim]))) {
+            if (
+                !is_int($payload[$integerClaim])
+                && !(is_string($payload[$integerClaim]) && ctype_digit($payload[$integerClaim]))
+            ) {
                 throw new InvalidArgumentException("Invalid JWT claim: {$integerClaim}");
             }
         }
+    }
 
-        if ($protectedHeader['appTokenType'] !== $payload['tokenType']) {
-            throw new InvalidArgumentException('JWT header appTokenType does not match tokenType claim');
+    /** @param array<string, mixed> $payload */
+    private static function assertNoLegacyTypeClaim(array $payload): void
+    {
+        if (array_key_exists('type', $payload)) {
+            throw new InvalidArgumentException('Invalid JWT claim: type');
         }
+    }
 
-        self::assertSessionId($payload);
-
+    /** @param array<string, mixed> $payload */
+    private static function assertTimestamps(array $payload, ?DateTime $now): void
+    {
         $expiresAt = (int) $payload['exp'];
         $issuedAt = (int) $payload['iat'];
         $nowTimestamp = ($now ?? new DateTime())->getTimestamp();
@@ -104,8 +155,6 @@ class Jwt
         if ($expiresAt <= $issuedAt) {
             throw new InvalidArgumentException('Token expiration must be after issue time');
         }
-
-        return TokenPayload::fromArray($payload);
     }
 
     /** @param array<string, mixed> $payload */

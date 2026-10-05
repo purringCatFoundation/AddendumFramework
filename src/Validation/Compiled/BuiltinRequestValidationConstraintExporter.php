@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PCF\Addendum\Validation\Compiled;
@@ -81,7 +82,10 @@ final readonly class BuiltinRequestValidationConstraintExporter implements Reque
                 SafeString::class,
                 $constraint->allowBasicHtml() ? 'true' : 'false'
             ),
-            default => throw new RuntimeException(sprintf('Cannot export unsupported validation constraint %s', $constraint::class)),
+            default => throw new RuntimeException(sprintf(
+                'Cannot export unsupported validation constraint %s',
+                $constraint::class
+            )),
         };
     }
 
@@ -106,6 +110,7 @@ final readonly class BuiltinRequestValidationConstraintExporter implements Reque
         return new Dumper()->dump($value);
     }
 
+    /** @param array<array-key, mixed> $values */
     private function arrayCode(array $values): string
     {
         if ($values === []) {

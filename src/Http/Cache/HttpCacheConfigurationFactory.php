@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PCF\Addendum\Http\Cache;
@@ -86,7 +87,10 @@ final readonly class HttpCacheConfigurationFactory
             apiToken: $this->env('CLOUDFLARE_HTTP_CACHE_API_TOKEN', ''),
             tagHeader: $this->env('CLOUDFLARE_HTTP_CACHE_TAG_HEADER', 'Cache-Tag'),
             cdnCacheControlHeader: $this->env('CLOUDFLARE_HTTP_CACHE_CDN_CACHE_CONTROL_HEADER', 'CDN-Cache-Control'),
-            cloudflareCacheControlHeader: $this->env('CLOUDFLARE_HTTP_CACHE_CONTROL_HEADER', 'Cloudflare-CDN-Cache-Control'),
+            cloudflareCacheControlHeader: $this->env(
+                'CLOUDFLARE_HTTP_CACHE_CONTROL_HEADER',
+                'Cloudflare-CDN-Cache-Control'
+            ),
             purgeByTags: $this->boolEnv('CLOUDFLARE_HTTP_CACHE_PURGE_BY_TAGS', false)
         );
     }
@@ -99,7 +103,10 @@ final readonly class HttpCacheConfigurationFactory
             secretEnv: 'HTTP_CACHE_SECRET',
             authStateHeader: $this->env('HTTP_CACHE_AUTH_STATE_HEADER', 'X-Auth-State'),
             userContextHeader: $this->env('HTTP_CACHE_USER_CONTEXT_HEADER', 'X-User-Context-Hash'),
-            userContextSignatureHeader: $this->env('HTTP_CACHE_USER_CONTEXT_SIGNATURE_HEADER', 'X-User-Context-Signature'),
+            userContextSignatureHeader: $this->env(
+                'HTTP_CACHE_USER_CONTEXT_SIGNATURE_HEADER',
+                'X-User-Context-Signature'
+            ),
             debugHeaders: $this->boolEnv('HTTP_CACHE_DEBUG_HEADERS', $appEnv === 'dev'),
             debugHeader: $this->env('HTTP_CACHE_DEBUG_HEADER', 'X-Http-Cache'),
             debugProviderHeader: $this->env('HTTP_CACHE_DEBUG_PROVIDER_HEADER', 'X-Http-Cache-Provider')

@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PCF\Addendum\Response\Object;
@@ -14,11 +15,13 @@ final readonly class PermissionsResponse implements JsonSerializable
     /** @var Vector<mixed> */
     private Vector $permissions;
 
+    /** @param iterable<mixed> $permissions */
     public function __construct(iterable $permissions)
     {
         $this->permissions = $permissions instanceof Vector ? $permissions->copy() : new Vector($permissions);
     }
 
+    /** @return array{permissions: list<mixed>} */
     public function jsonSerialize(): array
     {
         return [

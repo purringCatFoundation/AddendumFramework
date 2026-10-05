@@ -17,6 +17,7 @@ class ClearHttpCacheCommand extends Command
         parent::__construct();
     }
 
+    #[\Override]
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
         $context = stream_context_create([

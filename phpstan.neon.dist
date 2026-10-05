@@ -4,4 +4,6 @@ parameters:
     paths:
         - src
     tmpDir: .phpstan-cache
+    stubFiles:
+        - dev/phpstan/ds.stub
     reportUnmatchedIgnoredErrors: true

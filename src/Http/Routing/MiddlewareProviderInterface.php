@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PCF\Addendum\Http\Routing;
@@ -12,7 +13,7 @@ interface MiddlewareProviderInterface
     /**
      * Provides middleware for the given action class
      *
-     * @param ReflectionClass $actionClass
+     * @param ReflectionClass<object> $actionClass
      */
     public function provide(ReflectionClass $actionClass): RouteMiddlewareCollection;
 }

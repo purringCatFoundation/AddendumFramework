@@ -11,4 +11,14 @@
     <config name="ignore_errors_on_exit" value="0"/>
     <config name="ignore_warnings_on_exit" value="0"/>
     <rule ref="PSR12"/>
+    <!-- PHPCS 4.0.4 misreads PHP property hooks as class-level property declarations. Limit the affected checks to this exception until property hooks are supported. -->
+    <rule ref="PSR2.Classes.PropertyDeclaration.Multiple">
+        <exclude-pattern>src/Entity/User/Admin.php</exclude-pattern>
+    </rule>
+    <rule ref="PSR2.Classes.PropertyDeclaration.ScopeMissing">
+        <exclude-pattern>src/Entity/User/Admin.php</exclude-pattern>
+    </rule>
+    <rule ref="Generic.WhiteSpace.ScopeIndent">
+        <exclude-pattern>src/Entity/User/Admin.php</exclude-pattern>
+    </rule>
 </ruleset>

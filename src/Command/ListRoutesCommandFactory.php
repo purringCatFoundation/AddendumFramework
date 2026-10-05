@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PCF\Addendum\Command;
@@ -13,23 +14,18 @@ class ListRoutesCommandFactory implements FactoryInterface
 {
     public function create(): ListRoutesCommand
     {
-        // Configure action scanners for framework and application
+        // Scan the framework's built-in actions.
         $scanners = [
-            // Framework actions
-            new ActionScanner(
-                actionNamespace: 'Pradzikowski\\Framework\\Action',
-                actionDirectory: __DIR__ . '/../../framework/Action'
-            ),
-            // Game application actions
-            new ActionScanner(
-                actionNamespace: 'Pradzikowski\\Game\\Action',
-                actionDirectory: __DIR__ . '/../Action'
-            ),
+            new ActionScanner(actionDirectory: __DIR__ . '/../Action'),
         ];
 
         $routerFactory = new RouterFactory(
             $scanners,
-            new ApplicationCacheConfiguration(ApplicationCacheMode::OFF, 'dev', sys_get_temp_dir() . '/addendum-no-cache')
+            new ApplicationCacheConfiguration(
+                ApplicationCacheMode::OFF,
+                'dev',
+                sys_get_temp_dir() . '/addendum-no-cache'
+            )
         );
         $router = $routerFactory->create();
 

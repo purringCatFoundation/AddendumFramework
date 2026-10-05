@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PCF\Addendum\Http\Cache;
@@ -18,13 +19,22 @@ final class CloudflareHttpCacheBackendProvider implements HttpCacheBackendProvid
         return $this->configuration($configuration)->context;
     }
 
-    public function read(HttpCacheConfigurationInterface $configuration, ResourcePolicyCollection $policies, ServerRequestInterface $request, HttpCacheRequestContext $context): ?ResponseInterface
-    {
+    public function read(
+        HttpCacheConfigurationInterface $configuration,
+        ResourcePolicyCollection $policies,
+        ServerRequestInterface $request,
+        HttpCacheRequestContext $context
+    ): ?ResponseInterface {
         return null;
     }
 
-    public function write(HttpCacheConfigurationInterface $configuration, ResourcePolicyCollection $policies, ServerRequestInterface $request, HttpCacheRequestContext $context, ResponseInterface $response): ResponseInterface
-    {
+    public function write(
+        HttpCacheConfigurationInterface $configuration,
+        ResourcePolicyCollection $policies,
+        ServerRequestInterface $request,
+        HttpCacheRequestContext $context,
+        ResponseInterface $response
+    ): ResponseInterface {
         return $response;
     }
 
@@ -47,8 +57,7 @@ final class CloudflareHttpCacheBackendProvider implements HttpCacheBackendProvid
         HttpCachePolicy $policy,
         HttpCacheRequestContext $context,
         ResponseInterface $response
-    ): ResponseInterface
-    {
+    ): ResponseInterface {
         $config = $this->configuration($configuration);
         if ($policy->mode === HttpCacheMode::PRIVATE) {
             return $response;

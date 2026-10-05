@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PCF\Addendum\Http\Routing;
@@ -66,7 +67,7 @@ final readonly class RouteCollectionBuilder
     }
 
     /**
-     * @param list<ReflectionAttribute> $attributes
+     * @param list<ReflectionAttribute<ResourcePolicy>> $attributes
      */
     private function resourcePolicies(array $attributes): ResourcePolicyCollection
     {

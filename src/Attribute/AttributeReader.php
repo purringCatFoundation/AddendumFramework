@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PCF\Addendum\Attribute;
@@ -8,6 +9,7 @@ use ReflectionClass;
 
 final readonly class AttributeReader
 {
+    /** @var ReflectionClass<object> */
     protected ReflectionClass $reflection;
     public function __construct(object $target)
     {

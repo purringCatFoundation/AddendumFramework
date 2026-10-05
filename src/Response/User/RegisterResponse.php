@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PCF\Addendum\Response\User;
@@ -18,6 +19,7 @@ class RegisterResponse implements JsonSerializable, HttpStatusAware, HttpHeaders
         return 201;
     }
 
+    /** @return array{uuid: string, email: string} */
     public function jsonSerialize(): array
     {
         return ['uuid' => $this->uuid, 'email' => $this->email];

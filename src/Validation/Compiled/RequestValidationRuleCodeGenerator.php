@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PCF\Addendum\Validation\Compiled;
@@ -18,7 +19,7 @@ final readonly class RequestValidationRuleCodeGenerator
     private Vector $exporters;
 
     /**
-     * @param list<RequestValidationConstraintExporterInterface> $exporters
+     * @param list<mixed> $exporters Validated before storing.
      */
     public function __construct(array $exporters = [])
     {
@@ -28,7 +29,9 @@ final readonly class RequestValidationRuleCodeGenerator
 
         foreach ($exporters as $exporter) {
             if (!$exporter instanceof RequestValidationConstraintExporterInterface) {
-                throw new InvalidArgumentException('Validation rule code generator accepts only validation constraint exporters');
+                throw new InvalidArgumentException(
+                    'Validation rule code generator accepts only validation constraint exporters'
+                );
             }
         }
 
@@ -94,7 +97,8 @@ final readonly class RequestValidationRuleCodeGenerator
         }
 
         throw new RuntimeException(sprintf(
-            'Cannot compile validation constraint %s. Register a RequestValidationConstraintExporterInterface for this constraint.',
+            'Cannot compile validation constraint %s. '
+            . 'Register a RequestValidationConstraintExporterInterface for this constraint.',
             $constraint::class
         ));
     }

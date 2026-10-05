@@ -1,28 +1,18 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PCF\Addendum\Application;
 
-use Ds\Map;
 use Ds\Vector;
-use GuzzleHttp\Psr7\ServerRequest;
-use PCF\Addendum\Application\Cache\ApplicationCacheConfigurationFactory;
 use PCF\Addendum\Attribute\AttributeReader;
-use PCF\Addendum\Attribute\AttributeReaderFactory;
 use PCF\Addendum\Attribute\Actions;
 use PCF\Addendum\Attribute\Commands;
 use PCF\Addendum\Attribute\Name;
 use PCF\Addendum\Attribute\Version;
-use PCF\Addendum\Command\CommandScanner;
-use PCF\Addendum\Config\SystemEnvironmentProvider;
-use PCF\Addendum\Http\Cache\HttpCacheBackendProviderFactory;
-use PCF\Addendum\Http\Cache\HttpCacheConfigurationFactory;
-use PCF\Addendum\Http\Cache\HttpCacheRuntimeFactory;
-use PCF\Addendum\Http\Routing\ActionScanner;
 use Psr\Http\Message\ResponseInterface;
 use ReflectionClass;
 use Symfony\Component\Console\Application as ConsoleApplication;
-use Symfony\Component\Console\Command\LazyCommand;
 use Symfony\Component\Dotenv\Dotenv;
 
 /**
@@ -37,22 +27,27 @@ use Symfony\Component\Dotenv\Dotenv;
  * #[Commands(__DIR__ . '/Command')]
  * final class App extends Application {}
  * ```
+ *
+ * @phpstan-consistent-constructor
  */
 abstract class Application
 {
-    private static ?self $instance = null;
+    /** @var array<class-string<self>, self> */
+    private static array $instances = [];
 
     // Cached attribute values
     private ?string $name = null;
     private ?string $version = null;
+    /** @var Vector<string>|null */
     private ?Vector $actionPaths = null;
+    /** @var Vector<string>|null */
     private ?Vector $commandPaths = null;
     private ?string $frameworkDir = null;
     private AttributeReader $attributeReader;
 
     public function __construct()
     {
-        $this->attributeReader = new AttributeReaderFactory()->create($this);
+        $this->attributeReader = new AttributeReader($this);
     }
 
     /**
@@ -65,8 +60,7 @@ abstract class Application
         $app->configureErrorHandling();
 
         $httpApp = $app->createHttpApp();
-        $request = ServerRequest::fromGlobals();
-        $response = $httpApp->handle($request);
+        $response = new HttpApplicationFactory()->handleGlobals($httpApp);
 
         $app->emit($response);
     }
@@ -90,11 +84,14 @@ abstract class Application
      */
     protected static function getInstance(): static
     {
-        if (self::$instance === null) {
-            self::$instance = new static();
+        $instance = self::$instances[static::class] ?? null;
+
+        if (!$instance instanceof static) {
+            $instance = new static();
+            self::$instances[static::class] = $instance;
         }
 
-        return self::$instance;
+        return $instance;
     }
 
     /**
@@ -228,22 +225,7 @@ abstract class Application
      */
     protected function createHttpApp(): App
     {
-        $environmentProvider = new SystemEnvironmentProvider();
-        $cacheConfiguration = new ApplicationCacheConfigurationFactory($environmentProvider)->create();
-        $scanners = new Vector();
-
-        if (!$cacheConfiguration->isEnabled() || $cacheConfiguration->shouldRefreshOnRequest() || !is_file($cacheConfiguration->routesFile())) {
-            foreach ($this->getActionPaths() as $path) {
-                $scanners->push(new ActionScanner($path));
-            }
-        }
-
-        $httpCacheRuntimeFactory = new HttpCacheRuntimeFactory(
-            new HttpCacheConfigurationFactory($environmentProvider),
-            new HttpCacheBackendProviderFactory()
-        )->create();
-
-        return new AppFactory($scanners, $httpCacheRuntimeFactory, $cacheConfiguration)->create();
+        return new HttpApplicationFactory()->create($this->getActionPaths(...));
     }
 
     /**
@@ -251,40 +233,11 @@ abstract class Application
      */
     protected function createConsoleApp(): ConsoleApplication
     {
-        $consoleApp = new ConsoleApplication(
+        return new ConsoleApplicationFactory()->create(
             $this->getName(),
-            $this->getVersion()
+            $this->getVersion(),
+            $this->getCommandPaths()
         );
-
-        $commands = new Map();
-
-        foreach ($this->getCommandPaths() as $path) {
-            if (!is_dir($path)) {
-                continue;
-            }
-
-            $scanner = new CommandScanner($path);
-            foreach ($scanner->scanCommands() as $name => $definition) {
-                $commands->put($name, $definition);
-            }
-        }
-
-        foreach ($commands as $definition) {
-            $factoryClass = $definition->factory;
-            $commandClass = $definition->class;
-
-            $consoleApp->add(new LazyCommand(
-                name: $definition->name,
-                aliases: [],
-                description: $definition->description,
-                isHidden: false,
-                commandFactory: $factoryClass !== null
-                    ? fn() => new $factoryClass()->create()
-                    : fn() => new $commandClass(),
-            ));
-        }
-
-        return $consoleApp;
     }
 
     /**

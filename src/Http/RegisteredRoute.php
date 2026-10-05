@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PCF\Addendum\Http;
@@ -12,6 +13,7 @@ class RegisteredRoute
     public readonly string $path;
     public readonly RouteMiddlewareCollection $middlewares;
 
+    /** @param iterable<RouteMiddleware> $middlewares */
     public function __construct(
         public readonly string $pattern,
         public readonly string $actionClass,
@@ -57,9 +59,7 @@ class RegisteredRoute
         $routeParams = $matches;
 
         foreach ($matches as $key => $value) {
-            if (is_string($key)) {
-                $request = $request->withAttribute($key, $value);
-            }
+            $request = $request->withAttribute($key, $value);
         }
 
         $request = $request

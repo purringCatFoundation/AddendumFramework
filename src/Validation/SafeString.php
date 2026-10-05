@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PCF\Addendum\Validation;
@@ -34,7 +35,8 @@ class SafeString extends AbstractRequestValidator
 
     public function __construct(
         private readonly bool $allowBasicHtml = false
-    ) {}
+    ) {
+    }
 
     public function allowBasicHtml(): bool
     {

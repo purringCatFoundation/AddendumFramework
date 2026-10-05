@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PCF\Addendum\Entity\User;
@@ -14,6 +15,7 @@ final class ApplicationTokenCollection implements Countable, IteratorAggregate
     /** @var Vector<ApplicationToken> */
     private Vector $tokens;
 
+    /** @param iterable<ApplicationToken> $tokens */
     public function __construct(iterable $tokens = [])
     {
         $this->tokens = new Vector();

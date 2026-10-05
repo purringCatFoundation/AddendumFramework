@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PCF\Addendum\Http\Middleware;
@@ -50,7 +51,7 @@ class ValidateRequestAttribute implements MiddlewareInterface
                 $body
             );
         }
-        
+
         if (!$result->errors->isEmpty()) {
             $body = Utils::streamFor(json_encode(['errors' => $result->errors->toArray()], self::JSON_FLAGS));
             return new PsrResponse(

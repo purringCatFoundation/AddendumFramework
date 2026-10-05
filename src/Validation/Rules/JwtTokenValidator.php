@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PCF\Addendum\Validation\Rules;
@@ -42,7 +43,10 @@ final class JwtTokenValidator extends AbstractRequestValidator implements Reques
                 return "Invalid token type, expected '{$this->requiredTokenType}'";
             }
 
-            if ($payload->getTokenType() === TokenType::APPLICATION && !$this->applicationTokenValidator->isKnown($payload->jti, $token)) {
+            if (
+                $payload->getTokenType() === TokenType::APPLICATION
+                && !$this->applicationTokenValidator->isKnown($payload->jti, $token)
+            ) {
                 return 'Invalid token: Unknown application token';
             }
 

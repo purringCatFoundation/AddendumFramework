@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PCF\Addendum\Validation;
@@ -18,6 +19,7 @@ final readonly class RequestValidationPlan implements Countable, IteratorAggrega
     /** @var Vector<RequestValidationPlanRule> */
     private Vector $rules;
 
+    /** @param iterable<mixed> $rules Validated before storing. */
     public function __construct(iterable $rules = [])
     {
         $this->rules = new Vector();

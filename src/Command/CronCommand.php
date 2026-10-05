@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PCF\Addendum\Command;
@@ -21,10 +22,21 @@ class CronCommand extends Command
     protected function configure(): void
     {
         $this
-            ->addOption('run', null, InputOption::VALUE_OPTIONAL, 'Run scheduled jobs, optionally only for a specific cron code', false)
+            ->addOption(
+                'run',
+                null,
+                InputOption::VALUE_OPTIONAL,
+                'Run scheduled jobs, optionally only for a specific cron code',
+                false
+            )
             ->addOption('enable', null, InputOption::VALUE_REQUIRED, 'Enable a cron code')
             ->addOption('disable', null, InputOption::VALUE_REQUIRED, 'Disable a cron code')
-            ->addOption('set', null, InputOption::VALUE_REQUIRED, 'Change cron frequency for code (requires --expression)')
+            ->addOption(
+                'set',
+                null,
+                InputOption::VALUE_REQUIRED,
+                'Change cron frequency for code (requires --expression)'
+            )
             ->addOption('expression', null, InputOption::VALUE_REQUIRED, 'Cron expression used with --set');
     }
 
@@ -60,7 +72,12 @@ class CronCommand extends Command
         }
 
         foreach ($this->service->listCrons() as $cron) {
-            $output->writeln(sprintf('%s\t%s\t%s', $cron->code, $cron->enabled ? 'enabled' : 'disabled', $cron->expression));
+            $output->writeln(sprintf(
+                '%s\t%s\t%s',
+                $cron->code,
+                $cron->enabled ? 'enabled' : 'disabled',
+                $cron->expression
+            ));
         }
         return Command::SUCCESS;
     }

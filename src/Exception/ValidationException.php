@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PCF\Addendum\Exception;
@@ -11,6 +12,7 @@ class ValidationException extends Exception
     /** @var Map<string, mixed> */
     private Map $errors;
 
+    /** @param iterable<string, mixed> $errors */
     public function __construct(
         iterable $errors,
         string $message = 'Validation failed'
@@ -19,6 +21,7 @@ class ValidationException extends Exception
         parent::__construct($message);
     }
 
+    /** @return array<string, mixed> */
     public function getErrors(): array
     {
         return $this->errors->toArray();

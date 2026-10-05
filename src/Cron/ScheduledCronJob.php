@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PCF\Addendum\Cron;
@@ -11,6 +12,7 @@ final readonly class ScheduledCronJob
     ) {
     }
 
+    /** @param array<string, mixed> $row */
     public static function fromDatabaseRow(array $row): self
     {
         return new self(

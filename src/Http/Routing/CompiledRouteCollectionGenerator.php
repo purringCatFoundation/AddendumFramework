@@ -1,29 +1,19 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PCF\Addendum\Http\Routing;
 
 use Nette\PhpGenerator\Closure;
-use Nette\PhpGenerator\Dumper;
 use Nette\PhpGenerator\Literal;
 use Nette\PhpGenerator\PhpFile;
 use Nette\PhpGenerator\Printer;
-use Ds\Map;
-use Ds\Vector;
-use PCF\Addendum\Attribute\RateLimit;
 use PCF\Addendum\Attribute\ResourcePolicy;
 use PCF\Addendum\Http\Cache\ResourcePolicyCollection;
-use PCF\Addendum\Http\Middleware\AccessControlGuardianCollection;
-use PCF\Addendum\Http\Middleware\ClassAccessControlGuardianDefinition;
-use PCF\Addendum\Http\MiddlewareOptions;
 use PCF\Addendum\Http\RegisteredRoute;
 use PCF\Addendum\Http\RouteCollection;
 use PCF\Addendum\Http\RouteMiddleware;
 use PCF\Addendum\Http\RouteMiddlewareCollection;
-use PCF\Addendum\Validation\Compiled\RequestValidationRuleCodeGenerator;
-use PCF\Addendum\Validation\RequestValidationRuleCollection;
-use RuntimeException;
-use UnitEnum;
 
 final readonly class CompiledRouteCollectionGenerator
 {
@@ -80,7 +70,7 @@ final readonly class CompiledRouteCollectionGenerator
                 'new \\%s(\\%s::class, %s)',
                 RouteMiddleware::class,
                 ltrim($middleware->getClass(), '\\'),
-                $this->middlewareOptionsCode($options)
+                new RouteMiddlewareOptionsCodeGenerator()->generate($options)
             );
         }
 
@@ -89,119 +79,6 @@ final readonly class CompiledRouteCollectionGenerator
             RouteMiddlewareCollection::class,
             $this->indent(implode(",\n", $items))
         );
-    }
-
-    private function middlewareOptionsCode(MiddlewareOptions $options): string
-    {
-        if ($options->additionalData->isEmpty()) {
-            return 'new \\' . MiddlewareOptions::class . '()';
-        }
-
-        return sprintf(
-            'new \\%s(additionalData: %s)',
-            MiddlewareOptions::class,
-            $this->valueCode($options->additionalData)
-        );
-    }
-
-    private function valueCode(mixed $value): string
-    {
-        if ($value instanceof RequestValidationRuleCollection) {
-            return new RequestValidationRuleCodeGenerator()->generateCollection($value);
-        }
-
-        if ($value instanceof AccessControlGuardianCollection) {
-            return $this->accessControlGuardiansCode($value);
-        }
-
-        if ($value instanceof RateLimit) {
-            return sprintf(
-                'new \\%s(maxAttempts: %d, windowSeconds: %d, scope: %s, scopeKey: %s, errorMessage: %s)',
-                RateLimit::class,
-                $value->maxAttempts,
-                $value->windowSeconds,
-                $this->dump($value->scope),
-                $this->dump($value->scopeKey),
-                $this->dump($value->errorMessage)
-            );
-        }
-
-        if ($value instanceof Map) {
-            return $this->mapCode($value);
-        }
-
-        if ($value instanceof Vector) {
-            return $this->vectorCode($value);
-        }
-
-        if ($value instanceof UnitEnum) {
-            return sprintf('\\%s::%s', ltrim($value::class, '\\'), $value->name);
-        }
-
-        if (is_array($value)) {
-            return $this->arrayCode($value);
-        }
-
-        if (is_object($value) || is_resource($value)) {
-            throw new RuntimeException(sprintf('Cannot compile value of type %s into route cache', get_debug_type($value)));
-        }
-
-        return $this->dump($value);
-    }
-
-    private function accessControlGuardiansCode(AccessControlGuardianCollection $guardians): string
-    {
-        if ($guardians->isEmpty()) {
-            return 'new \\' . AccessControlGuardianCollection::class . '()';
-        }
-
-        $items = [];
-
-        foreach ($guardians as $guardian) {
-            $items[] = match (true) {
-                $guardian instanceof ClassAccessControlGuardianDefinition => sprintf(
-                    'new \\%s(guardianClass: \\%s::class)',
-                    ClassAccessControlGuardianDefinition::class,
-                    ltrim($guardian->guardianClass, '\\')
-                ),
-                default => throw new RuntimeException(sprintf('Cannot compile access control guardian of type %s', $guardian::class)),
-            };
-        }
-
-        return sprintf(
-            "new \\%s([\n%s,\n])",
-            AccessControlGuardianCollection::class,
-            $this->indent(implode(",\n", $items))
-        );
-    }
-
-    private function mapCode(Map $values): string
-    {
-        return $this->arrayCode($values->toArray());
-    }
-
-    private function vectorCode(Vector $values): string
-    {
-        return $this->arrayCode($values->toArray());
-    }
-
-    private function arrayCode(array $values): string
-    {
-        if ($values === []) {
-            return '[]';
-        }
-
-        $items = [];
-        $isList = array_is_list($values);
-
-        foreach ($values as $key => $value) {
-            $valueCode = $this->valueCode($value);
-            $items[] = $isList
-                ? $valueCode
-                : $this->dump($key) . ' => ' . $valueCode;
-        }
-
-        return "[\n" . $this->indent(implode(",\n", $items)) . ",\n]";
     }
 
     private function resourcePoliciesCode(ResourcePolicyCollection $policies): string
@@ -230,7 +107,7 @@ final readonly class CompiledRouteCollectionGenerator
 
     private function dump(mixed $value): string
     {
-        return new Dumper()->dump($value);
+        return new RouteMiddlewareOptionsCodeGenerator()->valueCode($value);
     }
 
     private function indent(string $code): string

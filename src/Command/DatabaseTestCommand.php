@@ -1,10 +1,13 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PCF\Addendum\Command;
 
 use Ds\Map;
 use Ds\Vector;
+use PCF\Addendum\Database\Testing\DatabaseTestRunner;
+use PCF\Addendum\Database\Testing\DatabaseTestSuite;
 use PDO;
 use PDOException;
 use Symfony\Component\Console\Attribute\AsCommand;
@@ -136,7 +139,9 @@ class DatabaseTestCommand extends Command
     private function validateDatabaseName(string $databaseName): void
     {
         if (!preg_match('/^[A-Za-z0-9_]+$/', $databaseName)) {
-            throw new \InvalidArgumentException('PostgreSQL database names may contain only letters, digits and underscores');
+            throw new \InvalidArgumentException(
+                'PostgreSQL database names may contain only letters, digits and underscores'
+            );
         }
     }
 
@@ -303,258 +308,16 @@ class DatabaseTestCommand extends Command
 
     private function runTests(string $pattern): int
     {
-        $this->io->section('Running tests');
-
-        $testPaths = $this->getTestPaths();
-        $validPaths = new Vector();
-
-        foreach ($testPaths as $path) {
-            if (is_dir($path)) {
-                $validPaths->push($path);
-            }
-        }
-
-        if ($validPaths->isEmpty()) {
-            $this->io->warning('No test directories found');
-            return Command::SUCCESS;
-        }
-
-        $finder = new Finder();
-        $finder->files()->name($pattern)->in($validPaths->toArray())->sortByName();
-
-        $total = 0;
-        $passed = 0;
-        $failed = 0;
-        $failedTests = new Vector();
-
-        foreach ($finder as $file) {
-            $total++;
-            $testName = $file->getFilename();
-
-            $this->io->text("Running: {$testName}");
-
-            $result = $this->runTestFile($file->getRealPath());
-
-            if ($result->success) {
-                $passed++;
-                $this->io->text("  <fg=green>✓ PASSED</> ({$result->tests} tests)");
-            } else {
-                $failed++;
-                $failedTests->push(new DatabaseTestFailure($testName, $result->output));
-                $this->io->text("  <fg=red>✗ FAILED</>");
-            }
-        }
-
-        // Summary
-        $this->io->newLine();
-        $this->io->section('Test Summary');
-
-        $this->io->definitionList(
-            ['Total tests' => (string) $total],
-            ['Passed' => "<fg=green>{$passed}</>"],
-            ['Failed' => $failed > 0 ? "<fg=red>{$failed}</>" : '0'],
+        $runner = new DatabaseTestRunner(
+            $this->getTestPdo(...),
+            $this->host,
+            $this->port,
+            $this->testDb,
+            $this->user,
+            $this->password
         );
 
-        // Show failed test details
-        if (!$failedTests->isEmpty()) {
-            $this->io->section('Failed Tests');
-            foreach ($failedTests as $failedTest) {
-                $this->io->error($failedTest->name);
-                $this->io->text($failedTest->output);
-            }
-        }
-
-        if ($failed === 0) {
-            $this->io->success('All tests passed!');
-            return Command::SUCCESS;
-        } else {
-            $this->io->error("{$failed} test(s) failed!");
-            return Command::FAILURE;
-        }
-    }
-
-    private function runTestFile(string $filePath): DatabaseTestResult
-    {
-        $sql = file_get_contents($filePath);
-
-        // Try using psql if available, otherwise fall back to PDO multi-query workaround
-        $psqlPath = $this->findPsql();
-
-        if ($psqlPath !== null) {
-            return $this->runTestWithPsql($psqlPath, $filePath);
-        }
-
-        return $this->runTestWithPdo($sql);
-    }
-
-    private function findPsql(): ?string
-    {
-        // Check common locations
-        $paths = new Vector(['/usr/bin/psql', '/usr/local/bin/psql', 'psql']);
-
-        foreach ($paths as $path) {
-            $process = new \Symfony\Component\Process\Process(['which', $path]);
-            $process->run();
-            if ($process->isSuccessful()) {
-                return trim($process->getOutput());
-            }
-
-            // Direct check
-            if (file_exists($path) && is_executable($path)) {
-                return $path;
-            }
-        }
-
-        return null;
-    }
-
-    private function runTestWithPsql(string $psqlPath, string $filePath): DatabaseTestResult
-    {
-        $process = new \Symfony\Component\Process\Process([
-            $psqlPath,
-            '-h', $this->host,
-            '-p', (string) $this->port,
-            '-U', $this->user,
-            '-d', $this->testDb,
-            '-f', $filePath,
-            '-v', 'ON_ERROR_STOP=1',
-        ]);
-
-        $process->setEnv(['PGPASSWORD' => $this->password]);
-        $process->setTimeout(60);
-        $process->run();
-
-        $output = $process->getOutput() . $process->getErrorOutput();
-
-        return $this->parseTapOutput($output, $process->isSuccessful());
-    }
-
-    private function runTestWithPdo(string $sql): DatabaseTestResult
-    {
-        $pdo = $this->getTestPdo();
-
-        // For PDO, we need to execute statements individually
-        // Split on semicolons (simple approach, may not work for all SQL)
-        $output = '';
-        $testCount = 0;
-        $hasFailure = false;
-
-        $pdo->beginTransaction();
-
-        try {
-            // Execute entire SQL - PDO::exec can handle multiple statements
-            $pdo->setAttribute(PDO::ATTR_EMULATE_PREPARES, true);
-            $pdo->exec($sql);
-
-            // For pgTAP tests, the output comes from SELECT statements
-            // We need to run them individually to capture output
-            // This is a simplified approach - may need refinement
-
-            $statements = $this->splitSqlStatements($sql);
-
-            foreach ($statements as $statement) {
-                $statement = trim($statement);
-                if (empty($statement)) {
-                    continue;
-                }
-
-                // Only try to fetch results from SELECT statements
-                if (stripos($statement, 'SELECT') === 0) {
-                    try {
-                        $stmt = $pdo->query($statement);
-                        if ($stmt) {
-                            $rows = $stmt->fetchAll(PDO::FETCH_NUM);
-                            foreach ($rows as $row) {
-                                $line = implode(' ', array_map('strval', $row));
-                                $output .= $line . "\n";
-                            }
-                        }
-                    } catch (PDOException $e) {
-                        $output .= "ERROR: " . $e->getMessage() . "\n";
-                        $hasFailure = true;
-                    }
-                } else {
-                    try {
-                        $pdo->exec($statement);
-                    } catch (PDOException $e) {
-                        $output .= "ERROR: " . $e->getMessage() . "\n";
-                        $hasFailure = true;
-                    }
-                }
-            }
-        } finally {
-            $pdo->rollBack();
-        }
-
-        $result = $this->parseTapOutput($output, !$hasFailure);
-
-        return $result->withOutput($output);
-    }
-
-    /** @return Vector<string> */
-    private function splitSqlStatements(string $sql): Vector
-    {
-        // Simple split by semicolon - doesn't handle strings with semicolons
-        // For pgTAP tests, this should be sufficient
-        $statements = new Vector();
-        $current = '';
-        $inString = false;
-        $stringChar = '';
-
-        for ($i = 0; $i < strlen($sql); $i++) {
-            $char = $sql[$i];
-
-            if (!$inString && ($char === "'" || $char === '"')) {
-                $inString = true;
-                $stringChar = $char;
-            } elseif ($inString && $char === $stringChar) {
-                // Check for escaped quote
-                if ($i + 1 < strlen($sql) && $sql[$i + 1] === $stringChar) {
-                    $current .= $char;
-                    $i++;
-                } else {
-                    $inString = false;
-                }
-            }
-
-            if (!$inString && $char === ';') {
-                $statements->push($current);
-                $current = '';
-            } else {
-                $current .= $char;
-            }
-        }
-
-        if (trim($current) !== '') {
-            $statements->push($current);
-        }
-
-        return $statements;
-    }
-
-    private function parseTapOutput(string $output, bool $processSuccess): DatabaseTestResult
-    {
-        $testCount = 0;
-        $hasFailure = false;
-
-        foreach (explode("\n", $output) as $line) {
-            // TAP output can be wrapped in psql result formatting
-            // Match "ok N" or "not ok N" anywhere in the line
-            if (preg_match('/\bok \d+/', $line)) {
-                $testCount++;
-            } elseif (preg_match('/\bnot ok \d+/', $line)) {
-                $testCount++;
-                $hasFailure = true;
-            } elseif (str_contains($line, 'ERROR:') || str_contains($line, 'FATAL:')) {
-                $hasFailure = true;
-            }
-        }
-
-        return new DatabaseTestResult(
-            success: !$hasFailure && $processSuccess,
-            tests: $testCount,
-            output: $output,
-        );
+        return new DatabaseTestSuite($runner, $this->io)->run($pattern, $this->getTestPaths());
     }
 
     /**

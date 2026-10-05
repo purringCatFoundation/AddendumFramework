@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PCF\Addendum\Cron;
@@ -14,6 +15,7 @@ final class SchedulableCronCollection implements Countable, IteratorAggregate
     /** @var Map<string, SchedulableCron> */
     private Map $crons;
 
+    /** @param iterable<SchedulableCron> $crons */
     public function __construct(iterable $crons = [])
     {
         $this->crons = new Map();

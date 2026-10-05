@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PCF\Addendum\Validation;
@@ -19,13 +20,16 @@ final readonly class RequestValidationConstraintCollection implements Countable,
     /** @var Vector<RequestValidationConstraintInterface> */
     private Vector $constraints;
 
+    /** @param iterable<mixed> $constraints Validated before storing. */
     public function __construct(iterable $constraints = [])
     {
         $this->constraints = new Vector();
 
         foreach ($constraints as $constraint) {
             if (!$constraint instanceof RequestValidationConstraintInterface) {
-                throw new InvalidArgumentException('Validation constraint collection accepts only request validation constraints');
+                throw new InvalidArgumentException(
+                    'Validation constraint collection accepts only request validation constraints'
+                );
             }
 
             $this->constraints->push($constraint);
@@ -55,6 +59,7 @@ final readonly class RequestValidationConstraintCollection implements Countable,
         return $this->constraints->getIterator();
     }
 
+    /** @return list<array{class: class-string<RequestValidationConstraintInterface>}> */
     public function jsonSerialize(): array
     {
         return array_map(

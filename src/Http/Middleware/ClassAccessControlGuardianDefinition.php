@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PCF\Addendum\Http\Middleware;
@@ -23,7 +24,9 @@ final readonly class ClassAccessControlGuardianDefinition implements AccessContr
         $instance = new $this->guardianClass();
 
         if (!$instance instanceof AccessControlGuardianInterface) {
-            throw new RuntimeException("Guardian '{$this->guardianClass}' does not implement AccessControlGuardianInterface");
+            throw new RuntimeException(
+                "Guardian '{$this->guardianClass}' does not implement AccessControlGuardianInterface"
+            );
         }
 
         $instance->authorize($request, $session);

@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PCF\Addendum\Http\Routing;
@@ -45,7 +46,7 @@ class MiddlewareStackBuilder
      * Infrastructure middleware is sorted into a stable order so security and validation
      * run before response decoration middleware.
      *
-     * @param ReflectionClass $actionClass
+     * @param ReflectionClass<object> $actionClass
      */
     public function buildStack(ReflectionClass $actionClass): RouteMiddlewareCollection
     {
@@ -64,8 +65,9 @@ class MiddlewareStackBuilder
 
     /**
      */
-    private function deduplicateInfrastructureMiddlewares(RouteMiddlewareCollection $middlewares): RouteMiddlewareCollection
-    {
+    private function deduplicateInfrastructureMiddlewares(
+        RouteMiddlewareCollection $middlewares
+    ): RouteMiddlewareCollection {
         $seen = [];
         $deduplicated = new RouteMiddlewareCollection();
 

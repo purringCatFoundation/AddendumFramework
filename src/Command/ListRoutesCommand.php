@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PCF\Addendum\Command;
@@ -106,6 +107,10 @@ class ListRoutesCommand extends Command
         return Command::SUCCESS;
     }
 
+    /**
+     * @param iterable<\PCF\Addendum\Http\RouteMiddleware> $middlewares
+     * @param ReflectionClass<object> $reflection
+     */
     private function displayRoute(
         OutputInterface $output,
         string $method,
@@ -158,6 +163,7 @@ class ListRoutesCommand extends Command
     }
 
     /**
+     * @param ReflectionClass<object> $reflection
      * @return Vector<string>
      */
     private function getAccessControlGuardians(ReflectionClass $reflection): Vector
@@ -178,6 +184,7 @@ class ListRoutesCommand extends Command
         return $guardians;
     }
 
+    /** @param ReflectionClass<object> $reflection */
     private function getRateLimit(ReflectionClass $reflection): ?string
     {
         $attributes = $reflection->getAttributes(RateLimit::class);
@@ -203,6 +210,7 @@ class ListRoutesCommand extends Command
         return end($parts);
     }
 
+    /** @param array<string, mixed> $options */
     private function formatOptions(array $options): string
     {
         $formatted = [];

@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PCF\Addendum\Cron;
@@ -14,6 +15,7 @@ final class ScheduledCronJobCollection implements Countable, IteratorAggregate
     /** @var Vector<ScheduledCronJob> */
     private Vector $jobs;
 
+    /** @param iterable<ScheduledCronJob> $jobs */
     public function __construct(iterable $jobs = [])
     {
         $this->jobs = new Vector();

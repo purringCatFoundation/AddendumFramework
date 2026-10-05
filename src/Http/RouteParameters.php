@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PCF\Addendum\Http;
@@ -15,17 +16,30 @@ final readonly class RouteParameters implements IteratorAggregate
     /** @var Map<string, string> */
     private Map $parameters;
 
+    /** @param iterable<array-key, string|int|float|bool|null> $parameters */
     public function __construct(iterable $parameters = [])
     {
-        $this->parameters = new Map();
+        $this->parameters = self::normalizeParameters($parameters);
+    }
+
+    /**
+     * @param iterable<array-key, string|int|float|bool|null> $parameters
+     * @return Map<string, string>
+     */
+    private static function normalizeParameters(iterable $parameters): Map
+    {
+        $namedParameters = new Map();
 
         foreach ($parameters as $name => $value) {
             if (is_string($name)) {
-                $this->parameters->put($name, (string) $value);
+                $namedParameters->put($name, (string) $value);
             }
         }
+
+        return $namedParameters;
     }
 
+    /** @param iterable<array-key, string> $matches */
     public static function fromRegexMatches(iterable $matches): self
     {
         return new self($matches);

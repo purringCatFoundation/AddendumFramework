@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PCF\Addendum\Http\Cache;
@@ -99,8 +100,11 @@ final readonly class RedisHttpCacheBackendProvider implements HttpCacheBackendPr
         return $configuration;
     }
 
-    private function withCacheState(RedisHttpCache $configuration, ResponseInterface $response, string $state): ResponseInterface
-    {
+    private function withCacheState(
+        RedisHttpCache $configuration,
+        ResponseInterface $response,
+        string $state
+    ): ResponseInterface {
         if (!$configuration->context->debugHeaders) {
             return $response;
         }
@@ -109,5 +113,4 @@ final readonly class RedisHttpCacheBackendProvider implements HttpCacheBackendPr
             ->withDebugHeaders($response, $state, 'redis')
             ->withHeader($configuration->hitHeader, $state);
     }
-
 }

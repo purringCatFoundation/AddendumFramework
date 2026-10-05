@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PCF\Addendum\Http;
@@ -19,6 +20,7 @@ final class RouteMiddlewareCollection implements Countable, IteratorAggregate, A
     /** @var Vector<RouteMiddleware> */
     private Vector $middlewares;
 
+    /** @param iterable<RouteMiddleware> $middlewares */
     public function __construct(iterable $middlewares = [])
     {
         $this->middlewares = new Vector();
@@ -85,6 +87,7 @@ final class RouteMiddlewareCollection implements Countable, IteratorAggregate, A
         return $this->middlewares->getIterator();
     }
 
+    /** @param mixed $offset */
     public function offsetExists(mixed $offset): bool
     {
         return is_int($offset) && $offset >= 0 && $offset < $this->middlewares->count();
@@ -99,11 +102,13 @@ final class RouteMiddlewareCollection implements Countable, IteratorAggregate, A
         return $this->middlewares->get($offset);
     }
 
+    #[\Override]
     public function offsetSet(mixed $offset, mixed $value): void
     {
         throw new InvalidArgumentException('Route middleware collection is immutable through array access');
     }
 
+    #[\Override]
     public function offsetUnset(mixed $offset): void
     {
         throw new InvalidArgumentException('Route middleware collection is immutable through array access');

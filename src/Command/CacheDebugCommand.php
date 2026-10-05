@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PCF\Addendum\Command;
@@ -29,53 +30,80 @@ final class CacheDebugCommand extends Command
         $this
             ->addOption('json', null, InputOption::VALUE_NONE, 'Print cache status as JSON')
             ->addOption('details', 'd', InputOption::VALUE_NONE, 'Show route middleware and policy details')
-            ->addOption('path', 'p', InputOption::VALUE_REQUIRED, 'Show only routes matching route path or request path')
-            ->addOption('strict', null, InputOption::VALUE_NONE, 'Return failure when compiled cache is incomplete or invalid');
+            ->addOption(
+                'path',
+                'p',
+                InputOption::VALUE_REQUIRED,
+                'Show only routes matching route path or request path'
+            )
+            ->addOption(
+                'strict',
+                null,
+                InputOption::VALUE_NONE,
+                'Return failure when compiled cache is incomplete or invalid'
+            );
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
         $status = $this->inspector->inspect($this->configuration);
         $routes = $this->hasValidRoutes($status) ? $this->loadRoutes() : null;
-        $pathFilter = $input->getOption('path');
-        $pathFilter = is_string($pathFilter) && trim($pathFilter) !== '' ? trim($pathFilter) : null;
+        $pathFilter = $this->normalizePathFilter($input->getOption('path'));
         $routeRows = $routes instanceof RouteCollection ? $this->routeRows($routes, $pathFilter) : new Vector();
 
         if ($input->getOption('json')) {
-            $routesList = [];
-
-            foreach ($routeRows as $row) {
-                $routesList[] = $this->routeDetails($row->method, $row->route);
-            }
-
-            $status['routesList'] = $routesList;
-            $output->writeln(json_encode($status, JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT));
-
-            return $this->isHealthy($status) || !$input->getOption('strict') ? Command::SUCCESS : Command::FAILURE;
+            $this->printJson($output, $status, $routeRows);
+        } elseif (!$routes instanceof RouteCollection) {
+            $this->printStatus($output, $status);
+        } elseif ($routeRows->isEmpty()) {
+            $output->writeln(
+                $pathFilter !== null ? sprintf('No routes matching %s', $pathFilter) : 'No routes registered'
+            );
+        } else {
+            $this->printRoutes($output, $routeRows, (bool) $input->getOption('details'));
         }
 
-        if (!$routes instanceof RouteCollection) {
-            $output->writeln(sprintf('APP_CACHE: %s', $status['mode']));
-            $output->writeln(sprintf('APP_ENV: %s', $status['environment']));
-            $output->writeln(sprintf('APP_CACHE_DIR: %s', $status['compiledDirectory']));
-            $this->printFileStatus($output, 'routes.php', $status['routes']);
-            $this->printFileStatus($output, 'metadata.php', $status['metadata']);
-            $this->printFileStatus($output, 'app.php', $status['app']);
+        return $this->isHealthy($status) || !$input->getOption('strict') ? Command::SUCCESS : Command::FAILURE;
+    }
 
-            return $this->isHealthy($status) || !$input->getOption('strict') ? Command::SUCCESS : Command::FAILURE;
+    private function normalizePathFilter(mixed $path): ?string
+    {
+        return is_string($path) && trim($path) !== '' ? trim($path) : null;
+    }
+
+    /**
+     * @param array<string, mixed> $status
+     * @param Vector<CacheDebugRouteRow> $rows
+     */
+    private function printJson(OutputInterface $output, array $status, Vector $rows): void
+    {
+        $routesList = [];
+        foreach ($rows as $row) {
+            $routesList[] = $this->routeDetails($row->method, $row->route);
         }
+        $status['routesList'] = $routesList;
+        $output->writeln(json_encode($status, JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT));
+    }
 
-        if ($routeRows->isEmpty()) {
-            $output->writeln($pathFilter !== null ? sprintf('No routes matching %s', $pathFilter) : 'No routes registered');
+    /** @param array<string, mixed> $status */
+    private function printStatus(OutputInterface $output, array $status): void
+    {
+        $output->writeln(sprintf('APP_CACHE: %s', $status['mode']));
+        $output->writeln(sprintf('APP_ENV: %s', $status['environment']));
+        $output->writeln(sprintf('APP_CACHE_DIR: %s', $status['compiledDirectory']));
+        $this->printFileStatus($output, 'routes.php', $status['routes']);
+        $this->printFileStatus($output, 'metadata.php', $status['metadata']);
+        $this->printFileStatus($output, 'app.php', $status['app']);
+    }
 
-            return $this->isHealthy($status) || !$input->getOption('strict') ? Command::SUCCESS : Command::FAILURE;
-        }
-
-        foreach ($routeRows as $row) {
+    /** @param Vector<CacheDebugRouteRow> $rows */
+    private function printRoutes(OutputInterface $output, Vector $rows, bool $detailed): void
+    {
+        foreach ($rows as $row) {
             $route = $row->route;
             $method = $row->method;
 
-            if ($input->getOption('details')) {
+            if ($detailed) {
                 $output->writeln(sprintf('%s %s => %s', $method, $route->path, $route->actionClass));
                 $output->writeln(json_encode(
                     $this->routeDetails($method, $route),
@@ -87,8 +115,6 @@ final class CacheDebugCommand extends Command
 
             $output->writeln(sprintf('%s %s', $method, $route->path));
         }
-
-        return $this->isHealthy($status) || !$input->getOption('strict') ? Command::SUCCESS : Command::FAILURE;
     }
 
     private function loadRoutes(): ?RouteCollection
@@ -119,8 +145,10 @@ final class CacheDebugCommand extends Command
             }
         }
 
-        $rows->sort(static fn(CacheDebugRouteRow $left, CacheDebugRouteRow $right): int => [$left->route->path, $left->method]
-            <=> [$right->route->path, $right->method]);
+        $rows->sort(
+            static fn(CacheDebugRouteRow $left, CacheDebugRouteRow $right): int =>
+                [$left->route->path, $left->method] <=> [$right->route->path, $right->method]
+        );
 
         return $rows;
     }

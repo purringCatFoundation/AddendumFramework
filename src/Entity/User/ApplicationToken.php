@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PCF\Addendum\Entity\User;
@@ -23,6 +24,10 @@ use DateTimeImmutable;
  */
 final readonly class ApplicationToken
 {
+    public ?DateTimeImmutable $lastUsedAt;
+    public ?DateTimeImmutable $revokedAt;
+    public ?string $revokedReason;
+
     private function __construct(
         public int $id,
         public string $uuid,
@@ -32,16 +37,18 @@ final readonly class ApplicationToken
         public string $ownerEmail,
         public string $jti,
         public DateTimeImmutable $createdAt,
-        public ?DateTimeImmutable $lastUsedAt = null,
-        public ?DateTimeImmutable $revokedAt = null,
-        public ?string $revokedReason = null
+        ApplicationTokenState $state = new ApplicationTokenState()
     ) {
+        $this->lastUsedAt = $state->lastUsedAt;
+        $this->revokedAt = $state->revokedAt;
+        $this->revokedReason = $state->revokedReason;
         $this->validate();
     }
 
     /**
      * Create new ApplicationToken from database row
      */
+    /** @param array<string, mixed> $row */
     public static function fromDatabaseRow(array $row): self
     {
         return new self(
@@ -53,9 +60,11 @@ final readonly class ApplicationToken
             ownerEmail: $row['owner_email'],
             jti: $row['jti'],
             createdAt: new DateTimeImmutable($row['created_at']),
-            lastUsedAt: isset($row['last_used_at']) ? new DateTimeImmutable($row['last_used_at']) : null,
-            revokedAt: isset($row['revoked_at']) ? new DateTimeImmutable($row['revoked_at']) : null,
-            revokedReason: $row['revoked_reason'] ?? null
+            state: new ApplicationTokenState(
+                lastUsedAt: isset($row['last_used_at']) ? new DateTimeImmutable($row['last_used_at']) : null,
+                revokedAt: isset($row['revoked_at']) ? new DateTimeImmutable($row['revoked_at']) : null,
+                revokedReason: $row['revoked_reason'] ?? null
+            )
         );
     }
 
@@ -95,9 +104,7 @@ final readonly class ApplicationToken
             ownerEmail: $this->ownerEmail,
             jti: $this->jti,
             createdAt: $this->createdAt,
-            lastUsedAt: $lastUsedAt,
-            revokedAt: $this->revokedAt,
-            revokedReason: $this->revokedReason
+            state: new ApplicationTokenState($lastUsedAt, $this->revokedAt, $this->revokedReason)
         );
     }
 
@@ -119,9 +126,7 @@ final readonly class ApplicationToken
             ownerEmail: $this->ownerEmail,
             jti: $this->jti,
             createdAt: $this->createdAt,
-            lastUsedAt: $this->lastUsedAt,
-            revokedAt: $revokedAt,
-            revokedReason: $reason
+            state: new ApplicationTokenState($this->lastUsedAt, $revokedAt, $reason)
         );
     }
 

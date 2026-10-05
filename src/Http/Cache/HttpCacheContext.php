@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PCF\Addendum\Http\Cache;
@@ -35,7 +36,7 @@ final readonly class HttpCacheContext
     {
         $secret = $_ENV[$this->secretEnv] ?? getenv($this->secretEnv);
 
-        if ($secret === false || $secret === null || $secret === '') {
+        if ($secret === false || $secret === '') {
             return null;
         }
 

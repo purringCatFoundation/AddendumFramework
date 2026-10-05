@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PCF\Addendum\Entity\User;
@@ -14,6 +15,7 @@ final class AdminAuditTrail implements Countable, IteratorAggregate
     /** @var Vector<AdminAuditTrailEntry> */
     private Vector $entries;
 
+    /** @param iterable<AdminAuditTrailEntry> $entries */
     public function __construct(iterable $entries = [])
     {
         $this->entries = new Vector();

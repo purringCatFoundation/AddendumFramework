@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PCF\Addendum\Entity\User;
@@ -14,6 +15,7 @@ final class ActiveAdminCollection implements Countable, IteratorAggregate
     /** @var Vector<ActiveAdmin> */
     private Vector $admins;
 
+    /** @param iterable<ActiveAdmin> $admins */
     public function __construct(iterable $admins = [])
     {
         $this->admins = new Vector();

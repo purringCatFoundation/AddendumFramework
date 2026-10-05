@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PCF\Addendum\Validation;
@@ -11,6 +12,7 @@ final readonly class RequestValidatorResolver
     /** @var Vector<RequestValidatorProviderInterface> */
     private Vector $providers;
 
+    /** @param iterable<RequestValidatorProviderInterface> $providers */
     public function __construct(iterable $providers)
     {
         $this->providers = new Vector();

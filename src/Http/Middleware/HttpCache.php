@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PCF\Addendum\Http\Middleware;
@@ -74,8 +75,10 @@ final readonly class HttpCache implements MiddlewareInterface
         return $this->applyPolicy($response, $policy, $context);
     }
 
-    private function processInvalidation(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
-    {
+    private function processInvalidation(
+        ServerRequestInterface $request,
+        RequestHandlerInterface $handler
+    ): ResponseInterface {
         $response = $this->withoutProxyHeaders(
             $handler->handle($request)->withHeader('Cache-Control', 'private, no-store')
         );
@@ -183,16 +186,18 @@ final readonly class HttpCache implements MiddlewareInterface
 
     private function withoutProxyHeaders(ResponseInterface $response): ResponseInterface
     {
-        foreach ([
-            'Surrogate-Control',
-            'Surrogate-Key',
-            'X-Accel-Expires',
-            'X-Cache-Tags',
-            'Souin-Cache-Tags',
-            'Cache-Tag',
-            'CDN-Cache-Control',
-            'Cloudflare-CDN-Cache-Control',
-        ] as $header) {
+        foreach (
+            [
+                'Surrogate-Control',
+                'Surrogate-Key',
+                'X-Accel-Expires',
+                'X-Cache-Tags',
+                'Souin-Cache-Tags',
+                'Cache-Tag',
+                'CDN-Cache-Control',
+                'Cloudflare-CDN-Cache-Control',
+            ] as $header
+        ) {
             $response = $response->withoutHeader($header);
         }
 

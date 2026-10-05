@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PCF\Addendum\Http\Cache;
@@ -80,7 +81,10 @@ final readonly class HttpCachedResponse
         ], JSON_THROW_ON_ERROR);
     }
 
-    /** @param iterable<string, iterable<string>> $headers */
+    /**
+     * @param iterable<string, iterable<string>> $headers
+     * @return Map<string, Vector<string>>
+     */
     private static function normalizeHeaders(iterable $headers): Map
     {
         $normalized = new Map();

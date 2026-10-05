@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PCF\Addendum\Validation\Rules;
@@ -11,6 +12,7 @@ class In extends AbstractRequestValidator
     /** @var Vector<mixed> */
     private Vector $allowedValues;
 
+    /** @param iterable<mixed> $allowedValues */
     public function __construct(iterable $allowedValues)
     {
         $this->allowedValues = $allowedValues instanceof Vector

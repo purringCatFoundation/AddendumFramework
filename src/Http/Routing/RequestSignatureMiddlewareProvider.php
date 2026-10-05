@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PCF\Addendum\Http\Routing;
@@ -23,6 +24,7 @@ use ReflectionClass;
  */
 class RequestSignatureMiddlewareProvider implements MiddlewareProviderInterface
 {
+    /** @param ReflectionClass<object> $actionClass */
     public function provide(ReflectionClass $actionClass): RouteMiddlewareCollection
     {
         if (!$this->requiresAuth($actionClass)) {
@@ -37,6 +39,7 @@ class RequestSignatureMiddlewareProvider implements MiddlewareProviderInterface
         ]);
     }
 
+    /** @param ReflectionClass<object> $actionClass */
     private function requiresAuth(ReflectionClass $actionClass): bool
     {
         if ($actionClass->getAttributes(AccessControlAttribute::class) !== []) {
@@ -44,7 +47,9 @@ class RequestSignatureMiddlewareProvider implements MiddlewareProviderInterface
         }
 
         foreach ($actionClass->getAttributes(MiddlewareAttribute::class) as $middlewareAttribute) {
-            if (in_array($middlewareAttribute->newInstance()->middlewareClass, [Auth::class, RefreshAuth::class], true)) {
+            if (
+                in_array($middlewareAttribute->newInstance()->middlewareClass, [Auth::class, RefreshAuth::class], true)
+            ) {
                 return true;
             }
         }

@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PCF\Addendum\Exception;
@@ -86,6 +87,7 @@ class AuthorizationError extends \RuntimeException
     /**
      * Get error response data
      */
+    /** @return array<string, mixed> */
     public function toArray(): array
     {
         return [

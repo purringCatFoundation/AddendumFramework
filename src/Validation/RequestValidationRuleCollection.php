@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PCF\Addendum\Validation;
@@ -19,6 +20,7 @@ final readonly class RequestValidationRuleCollection implements Countable, Itera
     /** @var Vector<RequestValidationRule> */
     private Vector $rules;
 
+    /** @param iterable<mixed> $rules Validated before storing. */
     public function __construct(iterable $rules = [])
     {
         $this->rules = new Vector();
@@ -65,6 +67,7 @@ final readonly class RequestValidationRuleCollection implements Countable, Itera
         return $this->rules->getIterator();
     }
 
+    /** @return list<RequestValidationRule> */
     public function jsonSerialize(): array
     {
         return $this->rules->toArray();

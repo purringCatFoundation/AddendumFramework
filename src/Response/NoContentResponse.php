@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PCF\Addendum\Response;
@@ -18,6 +19,7 @@ final readonly class NoContentResponse implements JsonSerializable, HttpStatusAw
         return 204;
     }
 
+    /** @return array{} */
     public function jsonSerialize(): array
     {
         return [];

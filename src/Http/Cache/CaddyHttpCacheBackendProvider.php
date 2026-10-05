@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PCF\Addendum\Http\Cache;
@@ -18,13 +19,22 @@ final class CaddyHttpCacheBackendProvider implements HttpCacheBackendProvider
         return $this->configuration($configuration)->context;
     }
 
-    public function read(HttpCacheConfigurationInterface $configuration, ResourcePolicyCollection $policies, ServerRequestInterface $request, HttpCacheRequestContext $context): ?ResponseInterface
-    {
+    public function read(
+        HttpCacheConfigurationInterface $configuration,
+        ResourcePolicyCollection $policies,
+        ServerRequestInterface $request,
+        HttpCacheRequestContext $context
+    ): ?ResponseInterface {
         return null;
     }
 
-    public function write(HttpCacheConfigurationInterface $configuration, ResourcePolicyCollection $policies, ServerRequestInterface $request, HttpCacheRequestContext $context, ResponseInterface $response): ResponseInterface
-    {
+    public function write(
+        HttpCacheConfigurationInterface $configuration,
+        ResourcePolicyCollection $policies,
+        ServerRequestInterface $request,
+        HttpCacheRequestContext $context,
+        ResponseInterface $response
+    ): ResponseInterface {
         return $response;
     }
 
@@ -48,8 +58,7 @@ final class CaddyHttpCacheBackendProvider implements HttpCacheBackendProvider
         HttpCachePolicy $policy,
         HttpCacheRequestContext $context,
         ResponseInterface $response
-    ): ResponseInterface
-    {
+    ): ResponseInterface {
         $config = $this->configuration($configuration);
         if ($policy->mode === HttpCacheMode::PRIVATE || $policy->tags->isEmpty()) {
             return $response;

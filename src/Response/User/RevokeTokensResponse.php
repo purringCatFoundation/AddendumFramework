@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PCF\Addendum\Response\User;
@@ -11,6 +12,7 @@ class RevokeTokensResponse implements JsonSerializable
     {
     }
 
+    /** @return array{success: bool} */
     public function jsonSerialize(): array
     {
         return ['success' => $this->success];

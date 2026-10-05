@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PCF\Addendum\Cache;
@@ -52,6 +53,7 @@ class RedisCache implements CacheInterface
         return $values;
     }
 
+    /** @param iterable<string, mixed> $values */
     public function setMultiple($values, null|int|DateInterval $ttl = null): bool
     {
         foreach ($values as $key => $value) {
