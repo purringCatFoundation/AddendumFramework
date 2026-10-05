@@ -1,4 +1,4 @@
-name: Coverage
+name: Quality
 
 on:
   push:
@@ -10,11 +10,19 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  codecov:
-    name: Codecov
+  quality:
+    name: ${{ matrix.tool }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        tool: [PHP_CodeSniffer, PHPStan, PHPMD]
 
     steps:
       - name: Checkout
@@ -28,7 +36,7 @@ jobs:
           php-version: '8.5'
           extensions: ds, openssl, pdo_pgsql, pdo_sqlite, dom, mbstring, simplexml, tokenizer, xml, xmlwriter
           tools: composer:v2
-          coverage: xdebug
+          coverage: none
 
       - name: Locate Composer cache
         id: composer-cache
@@ -47,18 +55,18 @@ jobs:
       - name: Install dependencies
         run: composer install --no-interaction --prefer-dist --no-progress
 
-      - name: Prepare coverage output
-        run: mkdir -p coverage
+      - name: Register PHP_CodeSniffer annotations
+        if: matrix.tool == 'PHP_CodeSniffer'
+        run: echo '::add-matcher::.github/phpcs-problem-matcher.json'
 
-      - name: Run PHPUnit with coverage
-        run: composer test -- --coverage-clover coverage/clover.xml
-        env:
-          XDEBUG_MODE: coverage
+      - name: Run PHP_CodeSniffer
+        if: matrix.tool == 'PHP_CodeSniffer'
+        run: composer phpcs -- --report=emacs
 
-      - name: Upload coverage
-        uses: codecov/codecov-action@v7
-        with:
-          files: coverage/clover.xml
-          fail_ci_if_error: false
-        env:
-          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+      - name: Run PHPStan
+        if: matrix.tool == 'PHPStan'
+        run: composer phpstan -- --error-format=github
+
+      - name: Run PHPMD
+        if: matrix.tool == 'PHPMD'
+        run: composer phpmd -- --format=github

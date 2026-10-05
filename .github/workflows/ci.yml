@@ -5,6 +5,7 @@ on:
     branches:
       - main
   pull_request:
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -13,17 +14,32 @@ jobs:
   phpunit:
     name: PHPUnit
     runs-on: ubuntu-latest
+    timeout-minutes: 15
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
 
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
         with:
           php-version: '8.5'
-          extensions: ds, pdo_pgsql
+          extensions: ds, openssl, pdo_pgsql, pdo_sqlite, dom, mbstring, simplexml, tokenizer, xml, xmlwriter
+          tools: composer:v2
           coverage: none
+
+      - name: Locate Composer cache
+        id: composer-cache
+        run: echo "dir=$(composer config cache-files-dir)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache Composer downloads
+        uses: actions/cache@v6
+        with:
+          path: ${{ steps.composer-cache.outputs.dir }}
+          key: ${{ runner.os }}-php-8.5-composer-${{ hashFiles('composer.lock') }}
+          restore-keys: ${{ runner.os }}-php-8.5-composer-
 
       - name: Validate Composer metadata
         run: composer validate --strict
@@ -32,7 +48,7 @@ jobs:
         run: composer install --no-interaction --prefer-dist --no-progress
 
       - name: Lint PHP files
-        run: git ls-files '*.php' | xargs -n1 php -l
+        run: git ls-files -z '*.php' | xargs -0 -n1 php -l
 
       - name: Run PHPUnit
-        run: ./vendor/bin/phpunit
+        run: composer test

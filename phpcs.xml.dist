@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ruleset name="Addendum Framework">
+    <description>Strict PSR-12 checks for framework source code.</description>
+    <file>src</file>
+    <arg name="extensions" value="php"/>
+    <arg name="basepath" value="."/>
+    <arg name="encoding" value="utf-8"/>
+    <arg name="severity" value="1"/>
+    <arg name="cache" value=".phpcs-cache"/>
+    <arg name="ignore-annotations"/>
+    <config name="ignore_errors_on_exit" value="0"/>
+    <config name="ignore_warnings_on_exit" value="0"/>
+    <rule ref="PSR12"/>
+</ruleset>

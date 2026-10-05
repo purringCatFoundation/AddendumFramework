@@ -2,6 +2,7 @@
 
 [![PHP 8.5](https://img.shields.io/badge/PHP-8.5-777BB4?logo=php&logoColor=white)](https://www.php.net/)
 [![CI](https://github.com/purringCatFoundation/AddendumFramework/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/purringCatFoundation/AddendumFramework/actions/workflows/ci.yml)
+[![Quality](https://github.com/purringCatFoundation/AddendumFramework/actions/workflows/quality.yml/badge.svg?branch=main)](https://github.com/purringCatFoundation/AddendumFramework/actions/workflows/quality.yml)
 [![Docker](https://github.com/purringCatFoundation/AddendumFramework/actions/workflows/docker.yml/badge.svg?branch=main)](https://github.com/purringCatFoundation/AddendumFramework/actions/workflows/docker.yml)
 [![CodeQL](https://github.com/purringCatFoundation/AddendumFramework/actions/workflows/codeql.yml/badge.svg?branch=main)](https://github.com/purringCatFoundation/AddendumFramework/actions/workflows/codeql.yml)
 [![codecov](https://codecov.io/gh/purringCatFoundation/AddendumFramework/branch/main/graph/badge.svg)](https://codecov.io/gh/purringCatFoundation/AddendumFramework)
@@ -17,6 +18,7 @@ PCF Addendum is a PHP 8.5 API framework for PSR-based HTTP applications. It prov
 - [First Steps](#first-steps)
 - [JWT Signing](#jwt-signing)
 - [Development Server](#development-server)
+- [Tests and Code Quality](#tests-and-code-quality)
 - [Documentation](#documentation)
 
 ## Requirements
@@ -225,6 +227,34 @@ Run database pgTAP tests through the database profile:
 ```bash
 docker compose --profile database run --rm database-tests
 ```
+
+## Tests and Code Quality
+
+Install development dependencies with `composer install`, then run:
+
+```bash
+composer test
+composer phpcs
+composer phpstan
+composer phpmd
+composer audit --locked --format=plain
+```
+
+`composer quality` runs PHP_CodeSniffer, PHPStan and PHPMD sequentially and stops at the first failing check. PHPUnit and the dependency audit are separate commands.
+
+The analyzers check all framework source code in `src/`:
+
+| Tool | Configuration | Rules |
+| --- | --- | --- |
+| PHP_CodeSniffer 4 | `phpcs.xml.dist` | Full PSR-12; both errors and warnings fail the check |
+| PHPStan 2 | `phpstan.neon.dist` | Level 6, targeting PHP 8.5 |
+| PHPMD 3 | `phpmd.xml` | Full `codesize`, `design` and `unusedcode` rulesets |
+
+Checks are strict from the first run: there are no baselines or excluded source files. PHP_CodeSniffer ignores suppression annotations and PHPMD runs with `--strict`. Existing violations also fail the checks.
+
+GitHub Actions runs PHPUnit, coverage, dependency auditing and three independent quality jobs on pull requests and pushes to `main`. Workflows can also be started manually. Quality jobs report file annotations and continue independently when another analyzer fails. Composer Audit additionally runs every Monday to catch newly published advisories.
+
+CodeQL uses Action v4 to analyze GitHub Actions workflow security. CodeQL does not support PHP; PHP source analysis is provided by PHPStan, PHP_CodeSniffer and PHPMD. CodeQL also runs every Monday.
 
 ## Documentation
 
